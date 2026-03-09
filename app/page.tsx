@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { FileUpload, type UploadedAttachment } from '@/components/FileUpload'
 
-// Mock Data from Readdy
+// 모의 데이터 (한국어 사례)
 const ISSUES = [
   {
     id: 1,
@@ -45,48 +46,6 @@ const ISSUES = [
     problem: "대형 쇼핑몰은 건축물대장상 업무시설로 등재되어 있으나 실제로는 판매시설로 사용 중이었습니다. 10년간 방치되다 민원 제기 후에야 시정권고만 내려졌습니다.",
     sense: "동일한 건축법 위반에 대해 사업장 규모에 따라 처분 수위가 극명하게 달라지는 것은 공정한 법 집행이라 볼 수 없습니다.",
     attachments: ["건축물대장.pdf", "시정권고서.pdf"]
-  },
-  {
-    id: 4,
-    title: "노동감독관, 체불임금 신고 4개월째 사실조사 미착수",
-    summary: "체불임금 진정 후 4개월이 지나도록 사실조사는커녕 사건담당자 배정조차 안 된 사례. 한편 동기간 사용자 측 반박서류는 즉시 검토.",
-    status: "접수됨",
-    tags: ["절차위반", "노동"],
-    region: "인천",
-    date: "2024-08-14",
-    support: 983,
-    overview: "2024년 4월 체불임금 진정을 제기했으나 8월 현재까지 사건 담당자 배정도 되지 않았습니다. 반면 사용자 측이 제출한 반박 자료는 접수 당일 검토되었습니다.",
-    problem: "근로기준법상 진정 접수 후 14일 이내 조사를 개시해야 하나, 4개월이 지나도록 방치되었습니다. 담당 지청에 문의 시 \"업무 과중\"을 이유로 들었습니다.",
-    sense: "노동자 권익 보호를 위한 신고 제도가 사실상 작동하지 않고 있습니다. 인력 부족을 이유로 법정 절차를 무시하는 것은 정당화될 수 없습니다.",
-    attachments: ["진정서_접수증.pdf", "미처리_증빙.pdf"]
-  },
-  {
-    id: 5,
-    title: "교통단속 카메라 사각지대 구간에만 집중적 수동 단속 시행",
-    summary: "CCTV 미설치 구간에서만 반복적으로 수동 단속이 집중되어, 단속 수입 극대화 의도가 명백하다는 민원이 잇따르고 있음.",
-    status: "검증중",
-    tags: ["행정편의", "교통"],
-    region: "대구",
-    date: "2024-11-01",
-    support: 754,
-    overview: "대구시 수성구 특정 구간에서 무인단속카메라가 없는 곳에서만 집중적으로 경찰 수동단속이 이뤄지고 있습니다. 3개월간 동일 장소에서 1,200건 이상의 단속이 발생했습니다.",
-    problem: "해당 구간은 제한속도 50km/h이나 도로 설계상 70km/h로 주행이 자연스러운 구조입니다. 카메라 구간은 단속이 없고, CCTV 없는 구간에만 경찰이 대기하고 있습니다.",
-    sense: "교통 안전이 목적이라면 사고 다발 지역에 단속이 집중되어야 하나, 실상은 단속 수입 극대화에 초점이 맞춰져 있습니다.",
-    attachments: ["단속현황_통계.xlsx", "도로구조_사진.jpg"]
-  },
-  {
-    id: 6,
-    title: "영업허가 갱신 서류 기한 내 제출했음에도 '누락' 처리 후 허가 취소",
-    summary: "법정 기한 전에 등기우편으로 발송한 갱신 서류가 구청 내부 전달 과정에서 분실되어 허가 취소된 사례. 재발급 신청도 거부.",
-    status: "공론화진행",
-    tags: ["절차위반", "영업"],
-    region: "광주",
-    date: "2024-10-18",
-    support: 1203,
-    overview: "영업허가 갱신 서류를 법정 기한 7일 전에 등기우편으로 발송했으나, 구청 내부에서 서류가 분실되어 미제출로 처리되었습니다. 이에 대해 허가 취소 통보를 받았습니다.",
-    problem: "등기우편 배송증명서를 제출했으나 구청은 \"접수대장에 없다\"는 이유로 미제출 처리했습니다. 재심사 요청도 \"기한 경과\"를 이유로 거부당했습니다.",
-    sense: "행정기관의 내부 실수로 인한 피해를 민원인에게 전가하는 것은 부당합니다. 배송증명이 있음에도 불구하고 구제 절차가 없다는 것은 문제입니다.",
-    attachments: ["등기배송증명서.pdf", "허가취소통지서.pdf"]
   }
 ]
 
@@ -107,11 +66,21 @@ export default function HomePage() {
   const [toast, setToast] = useState({ message: "", visible: false })
   const [supportedIds, setSupportedIds] = useState<number[]>([])
   const [issueFilter, setIssueFilter] = useState("전체")
-  const [rankingPeriod, setRankingPeriod] = useState("weekly")
+  const [rankingPeriod, setRankingPeriod] = useState("주간")
+  const [reportAttachments, setReportAttachments] = useState<UploadedAttachment[]>([])
 
-  const issuesRef = useRef<(HTMLDivElement | null)[]>([])
-  const rankingRef = useRef<(HTMLDivElement | null)[]>([])
-  const principlesRef = useRef<(HTMLDivElement | null)[]>([])
+  // 제보 폼 상태
+  const [formStep, setFormStep] = useState(1)
+  const [formData, setFormData] = useState({
+    title: "",
+    type: "",
+    field: "",
+    region: "",
+    date: "",
+    overview: "",
+    problemSense: ""
+  })
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([])
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50)
@@ -132,7 +101,7 @@ export default function HomePage() {
     elements.forEach(el => observer.observe(el))
 
     return () => observer.disconnect()
-  }, [issueFilter])
+  }, [issueFilter, formStep])
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id)
@@ -147,10 +116,10 @@ export default function HomePage() {
   const toggleSupport = (id: number) => {
     if (supportedIds.includes(id)) {
       setSupportedIds(prev => prev.filter(item => item !== id))
-      showToast("공감을 취소했습니다")
+      showToast("공감을 취소했습니다.")
     } else {
       setSupportedIds(prev => [...prev, id])
-      showToast("공감을 보냈습니다! 더 많은 공감이 모일수록 공론화됩니다.")
+      showToast("공감을 보냈습니다! 공감이 모일수록 공론화 가능성이 높아집니다.")
     }
   }
 
@@ -162,6 +131,63 @@ export default function HomePage() {
   const closeModal = () => {
     setActiveModalId(null)
     document.body.style.overflow = "auto"
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedRequests.length === 0) {
+      showToast("요청 사항을 1개 이상 선택해 주세요.")
+      return
+    }
+
+    try {
+      const res = await fetch('/api/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          enforcement_type: formData.type,
+          field_category: formData.field,
+          region: formData.region,
+          occurred_at: formData.date || null,
+          overview: formData.overview,
+          sense: formData.problemSense,
+          requests: selectedRequests,
+        }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json()
+        showToast(`오류: ${error || '제출에 실패했습니다.'}`)
+        return
+      }
+    } catch {
+      showToast("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+      return
+    }
+
+    const attachmentMessage =
+      reportAttachments.length > 0
+        ? ` 첨부자료 ${reportAttachments.length}건이 함께 접수되었습니다.`
+        : " 검토 후 공개됩니다."
+    showToast(`제보가 성공적으로 접수되었습니다.${attachmentMessage}`)
+    setFormStep(1)
+    setFormData({
+      title: "",
+      type: "",
+      field: "",
+      region: "",
+      date: "",
+      overview: "",
+      problemSense: ""
+    })
+    setSelectedRequests([])
+    setReportAttachments([])
+  }
+
+  const toggleRequest = (req: string) => {
+    setSelectedRequests(prev => 
+      prev.includes(req) ? prev.filter(r => r !== req) : [...prev, req]
+    )
   }
 
   const filteredIssues = issueFilter === "전체" ? ISSUES : ISSUES.filter(i => i.tags.includes(issueFilter))
@@ -200,7 +226,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F4]">
-      {/* Header */}
+      {/* 헤더 */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${isScrolled ? "glass-effect shadow-sm" : "bg-transparent"}`}>
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -208,10 +234,10 @@ export default function HomePage() {
               <div className="w-2 h-2 bg-red-500 rounded-full group-hover:scale-125 transition-transform duration-300" />
               <span className="text-gray-900">시민신문고</span>
             </button>
-            <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md">BETA</span>
+            <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-md">베타</span>
           </div>
           <nav className="hidden md:flex items-center gap-1">
-            {["이슈 목록", "추천 랭킹", "제보하기", "운영 원칙"].map((label, i) => {
+            {["이슈 목록", "인기 랭킹", "제보하기", "운영 원칙"].map((label, i) => {
               const ids = ["issues", "ranking", "register", "principles"]
               return (
                 <button key={label} onClick={() => scrollToSection(ids[i])} className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-red-500 hover:bg-gray-50 rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap">
@@ -227,7 +253,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* 히어로 섹션 */}
       <section id="hero" className="relative pt-24 pb-16 px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -242,22 +268,22 @@ export default function HomePage() {
               <div className="flex gap-8">
                 <div>
                   <div className="text-4xl font-black text-gray-900">{STATS.totalIssues}</div>
-                  <div className="text-sm text-gray-600 mt-1">등록 이슈</div>
+                  <div className="text-sm text-gray-600 mt-1">등록된 이슈</div>
                 </div>
                 <div>
                   <div className="text-4xl font-black text-gray-900">{(STATS.totalSupport / 1000).toFixed(1)}k</div>
-                  <div className="text-sm text-gray-600 mt-1">총 추천</div>
+                  <div className="text-sm text-gray-600 mt-1">누적 공감수</div>
                 </div>
                 <div>
                   <div className="text-4xl font-black text-gray-900">{STATS.resolvedCases}</div>
-                  <div className="text-sm text-gray-600 mt-1">개선 사례</div>
+                  <div className="text-sm text-gray-600 mt-1">개선 완료 사례</div>
                 </div>
               </div>
               <div className="flex gap-4">
-                <button onClick={() => scrollToSection("register")} className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap">
+                <button onClick={() => scrollToSection("register")} className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap text-lg">
                   이슈 제보하기 →
                 </button>
-                <button onClick={() => scrollToSection("issues")} className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-900 font-semibold rounded-lg hover:border-gray-400 transition-colors cursor-pointer whitespace-nowrap">
+                <button onClick={() => scrollToSection("issues")} className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-900 font-semibold rounded-lg hover:border-gray-400 transition-colors cursor-pointer whitespace-nowrap text-lg">
                   전체 이슈 보기
                 </button>
               </div>
@@ -282,7 +308,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className="text-lg font-bold text-gray-900">{issue.support.toLocaleString()}</div>
-                      <div className="text-xs text-gray-500">추 천</div>
+                      <div className="text-xs text-gray-500">공감</div>
                     </div>
                   </div>
                 ))}
@@ -292,12 +318,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Issues Section */}
+      {/* 이슈 리스트 섹션 */}
       <section id="issues" className="py-24 px-6 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-end justify-between mb-10">
             <div className="animate-slideUp">
-              <div className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-3">전체 이슈</div>
+              <div className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-3">최신 이슈</div>
               <h2 className="text-5xl font-black text-gray-900 leading-tight">기록된 불합리들</h2>
             </div>
             <button className="text-sm font-semibold text-red-500 hover:text-red-600 hover:gap-2 flex items-center gap-1 transition-all duration-300 cursor-pointer whitespace-nowrap group">
@@ -314,7 +340,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredIssues.map((issue, idx) => (
+            {filteredIssues.map((issue) => (
               <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in bg-white rounded-2xl p-6 border border-gray-100 hover:border-gray-200 smooth-shadow hover:smooth-shadow-lg hover:scale-[1.02] transition-all duration-500 cursor-pointer group">
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex flex-wrap gap-2">
@@ -345,12 +371,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Ranking Section */}
+      {/* 랭킹 섹션 */}
       <section id="ranking" className="py-24 px-6 bg-gradient-to-b from-gray-900 to-gray-800">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-end justify-between mb-10">
             <div className="animate-slideUp">
-              <div className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">추천 랭킹</div>
+              <div className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">인기 랭킹</div>
               <h2 className="text-5xl font-black text-white leading-tight">가장 많은 공감을<br />받은 이슈</h2>
             </div>
             <button className="text-sm font-semibold text-red-400 hover:text-red-300 hover:gap-2 flex items-center gap-1 transition-all duration-300 cursor-pointer whitespace-nowrap group">
@@ -359,9 +385,9 @@ export default function HomePage() {
           </div>
 
           <div className="flex gap-1 mb-10 bg-gray-800/50 backdrop-blur-sm rounded-2xl p-1.5 w-fit animate-slideUp border border-gray-700">
-            {[["weekly", "주간 TOP"], ["monthly", "월간 TOP"], ["all", "누적 TOP"]].map(([p, l]) => (
+            {["주간", "월간", "누적"].map((p) => (
               <button key={p} onClick={() => setRankingPeriod(p)} className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 cursor-pointer whitespace-nowrap ${rankingPeriod === p ? "bg-white text-gray-900 shadow-lg" : "text-gray-400 hover:text-white hover:bg-gray-700/50"}`}>
-                {l}
+                {p}인기
               </button>
             ))}
           </div>
@@ -385,7 +411,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex-shrink-0 text-right">
                   <div className="text-3xl font-black text-red-400 group-hover:scale-110 transition-transform duration-300">{issue.support.toLocaleString()}</div>
-                  <div className="text-sm text-gray-400 uppercase tracking-wider mt-1 font-semibold">SUPPORT</div>
+                  <div className="text-sm text-gray-400 uppercase tracking-wider mt-1 font-semibold">지지수</div>
                 </div>
               </div>
             ))}
@@ -393,7 +419,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Register Section */}
+      {/* 제보 섹션 */}
       <section id="register" className="py-20 px-6 bg-[#F8F7F4]">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12">
@@ -420,51 +446,165 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-2xl p-8 shadow-sm">
-              <form onSubmit={(e) => { e.preventDefault(); showToast("제보가 접수되었습니다. 검토 후 공개됩니다."); }} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">제목 <span className="text-red-500">*</span></label>
-                  <input type="text" placeholder="사실 중심으로 작성해 주세요. 감정적 표현은 제한됩니다." maxLength={100} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" required />
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-8">
+                <span className="text-sm font-bold text-gray-400">단계 {formStep} / 2</span>
+                <div className="flex gap-2 w-32">
+                  <div className={`flex-1 h-2 rounded-full transition-colors ${formStep >= 1 ? "bg-red-500" : "bg-gray-200"}`} />
+                  <div className={`flex-1 h-2 rounded-full transition-colors ${formStep >= 2 ? "bg-red-500" : "bg-gray-200"}`} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">법집행 유형 <span className="text-red-500">*</span></label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" required>
-                      <option value="">선택하세요</option>
-                      {["과잉단속", "선별집행", "형평성", "절차위반", "권한남용", "명확성없음", "행정편의", "기타"].map(opt => <option key={opt}>{opt}</option>)}
-                    </select>
+              </div>
+              
+              <form onSubmit={handleFormSubmit} className="space-y-6">
+                {formStep === 1 ? (
+                  <div className="space-y-6 animate-slideUp">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">제목 <span className="text-red-500">*</span></label>
+                      <input 
+                        type="text" 
+                        value={formData.title}
+                        onChange={(e) => setFormData({...formData, title: e.target.value})}
+                        placeholder="사건을 한 눈에 알 수 있는 제목을 입력하세요." 
+                        maxLength={100} 
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" 
+                        required 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">법집행 유형 <span className="text-red-500">*</span></label>
+                        <select 
+                          value={formData.type}
+                          onChange={(e) => setFormData({...formData, type: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" 
+                          required
+                        >
+                          <option value="">선택하세요</option>
+                          {["과잉단속", "선별집행", "형평성", "절차위반", "권한남용", "명확성없음", "행정편의", "기타"].map(opt => <option key={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">분야 <span className="text-red-500">*</span></label>
+                        <select 
+                          value={formData.field}
+                          onChange={(e) => setFormData({...formData, field: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" 
+                          required
+                        >
+                          <option value="">선택하세요</option>
+                          {["형사", "세무", "건축", "영업", "노동", "환경", "교통", "교육", "기타"].map(opt => <option key={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">지역 <span className="text-red-500">*</span></label>
+                        <select 
+                          value={formData.region}
+                          onChange={(e) => setFormData({...formData, region: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" 
+                          required
+                        >
+                          <option value="">선택하세요</option>
+                          {["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"].map(opt => <option key={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">발생 시점 <span className="text-red-500">*</span></label>
+                        <input 
+                          type="date" 
+                          value={formData.date}
+                          onChange={(e) => setFormData({...formData, date: e.target.value})}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        if (formData.title && formData.type && formData.field && formData.region && formData.date) {
+                          setFormStep(2)
+                        } else {
+                          showToast("모든 필수 항목을 입력해 주세요.")
+                        }
+                      }}
+                      className="w-full px-6 py-4 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap text-lg"
+                    >
+                      상세 내용 작성하기 <i className="ri-arrow-right-line" />
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">분야 <span className="text-red-500">*</span></label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" required>
-                      <option value="">선택하세요</option>
-                      {["형사", "세무", "건축", "영업", "노동", "환경", "교통", "교육", "기타"].map(opt => <option key={opt}>{opt}</option>)}
-                    </select>
+                ) : (
+                  <div className="space-y-6 animate-slideUp">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">요청 사항 <span className="text-red-500">*</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {["재검토", "감사", "제도개선", "공론화"].map(req => (
+                          <button 
+                            key={req} 
+                            type="button" 
+                            onClick={() => toggleRequest(req)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${selectedRequests.includes(req) ? "bg-red-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                          >
+                            {req}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">사건 개요 <span className="text-red-500">*</span></label>
+                      <textarea 
+                        value={formData.overview}
+                        onChange={(e) => setFormData({...formData, overview: e.target.value})}
+                        placeholder="언제, 어디서, 무슨 일이 있었는지 사실 중심으로 기술해 주세요." 
+                        rows={4} 
+                        maxLength={500} 
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm resize-none" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">상식적으로 문제되는 지점 <span className="text-red-500">*</span></label>
+                      <textarea 
+                        value={formData.problemSense}
+                        onChange={(e) => setFormData({...formData, problemSense: e.target.value})}
+                        placeholder="왜 이 법 집행이 상식에 어긋난다고 생각하는지 논리적으로 기술해 주세요." 
+                        rows={4} 
+                        maxLength={500} 
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm resize-none" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">증빙 자료 첨부</label>
+                      <p className="text-xs text-gray-500 mb-3">직접 파일 업로드(PDF/JPG/PNG/WEBP, 최대 10MB) 또는 클라우드 공유 URL 입력 방식을 사용할 수 있습니다.</p>
+                      <FileUpload mode="local" onFilesChange={setReportAttachments} />
+                      <p className="text-xs text-gray-500 mt-2">현재 첨부된 자료: {reportAttachments.length}건</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <button 
+                        type="button" 
+                        onClick={() => setFormStep(1)}
+                        className="flex-1 px-6 py-4 bg-white border-2 border-gray-300 text-gray-900 font-bold rounded-lg hover:border-gray-400 transition-colors"
+                      >
+                        이전으로
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="flex-[2] px-6 py-4 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap text-lg"
+                      >
+                        <span>📋</span> <span>제보 등록하기</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">지역 <span className="text-red-500">*</span></label>
-                    <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" required>
-                      <option value="">선택하세요</option>
-                      {["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"].map(opt => <option key={opt}>{opt}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">발생 시점 <span className="text-red-500">*</span></label>
-                    <input type="date" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" required />
-                  </div>
-                </div>
-                <button type="submit" className="w-full px-6 py-4 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
-                  <span>📋</span> <span>제보 등록하기</span>
-                </button>
+                )}
               </form>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Principles Section */}
+      {/* 원칙 섹션 */}
       <section id="principles" className="py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 animate-slideUp">
@@ -472,7 +612,7 @@ export default function HomePage() {
             <h2 className="text-5xl font-black text-gray-900 leading-tight">신뢰가 공론화의<br />기반입니다</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PRINCIPLES.map((principle, i) => (
+            {PRINCIPLES.map((principle) => (
               <div key={principle.title} className="fade-in bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-2xl p-8 smooth-shadow hover:smooth-shadow-lg hover:scale-[1.02] hover:border-gray-300 transition-all duration-500 group">
                 <div className="w-16 h-16 flex items-center justify-center text-4xl mb-5 group-hover:scale-110 transition-transform duration-300">{principle.icon}</div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4 group-hover:text-red-500 transition-colors duration-300">{principle.title}</h3>
@@ -483,7 +623,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* 푸터 */}
       <footer className="bg-gradient-to-b from-gray-900 to-black text-white py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-16 mb-16">
@@ -497,7 +637,7 @@ export default function HomePage() {
             <div>
               <h4 className="font-bold text-white mb-5 text-lg">플랫폼</h4>
               <div className="space-y-3">
-                {["전체 이슈", "추천 랭킹", "이슈 제보", "자료 아카이브", "제보 가이드"].map((label, i) => {
+                {["전체 이슈", "인기 랭킹", "이슈 제보", "자료 아카이브", "제보 가이드"].map((label, i) => {
                   const ids = ["issues", "ranking", "register", "", ""]
                   return (
                     <button key={label} onClick={() => ids[i] && scrollToSection(ids[i])} className="block text-gray-400 hover:text-white hover:translate-x-1 transition-all duration-300 text-sm cursor-pointer text-left">
@@ -524,12 +664,12 @@ export default function HomePage() {
           <div className="border-t border-gray-800 pt-10">
             <p className="text-gray-400 text-sm mb-3 font-medium">© 2025 시민신문고. All rights reserved.</p>
             <p className="text-gray-500 text-xs mb-3 leading-relaxed">본 플랫폼은 공익 목적의 의견 개진 플랫폼이며, 게시 내용은 사실로 단정하지 않습니다.</p>
-            <p className="text-gray-600 text-xs">React + Next.js<br />v1.0.0-beta</p>
+            <p className="text-gray-600 text-xs">리액트 + 넥스트JS 기반<br />v1.0.0-베타</p>
           </div>
         </div>
       </footer>
 
-      {/* Modal */}
+      {/* 모달 */}
       {activeModalId && currentModalIssue && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-100`} onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className={`bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden smooth-shadow-xl transition-all duration-500 scale-100 opacity-100`}>
@@ -603,7 +743,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Toast */}
+      {/* 토스트 */}
       {toast.visible && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-slideUp">
           <div className="bg-gray-900 text-white px-8 py-4 rounded-2xl smooth-shadow-xl backdrop-blur-sm flex items-center gap-3">

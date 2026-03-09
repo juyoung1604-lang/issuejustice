@@ -29,6 +29,32 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_').toLowerCase()
 }
 
+function normalizeUrl(rawUrl: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    throw new UploadError('유효한 URL을 입력해 주세요.')
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new UploadError('http 또는 https URL만 입력할 수 있습니다.')
+  }
+
+  return parsed.toString()
+}
+
+function inferNameFromUrl(fileUrl: string): string {
+  try {
+    const parsed = new URL(fileUrl)
+    const lastSegment = parsed.pathname.split('/').pop()
+    if (!lastSegment) return `cloud_link_${Date.now()}`
+    return decodeURIComponent(lastSegment).slice(0, 120) || `cloud_link_${Date.now()}`
+  } catch {
+    return `cloud_link_${Date.now()}`
+  }
+}
+
 // ── 파일 업로드 ───────────────────────────────────────────────
 export async function uploadAttachment(
   issueId: string,
@@ -82,6 +108,38 @@ export async function uploadAttachment(
     // DB 실패 시 Storage에서도 삭제
     await supabase.storage.from(BUCKET).remove([storagePath])
     throw new UploadError('파일 정보 저장 실패')
+  }
+
+  return data as Attachment
+}
+
+// ── 클라우드 URL 첨부 ────────────────────────────────────────
+export async function addUrlAttachment(
+  issueId: string,
+  fileUrl: string,
+  fileType: Attachment['file_type'],
+  originalName?: string
+): Promise<Attachment> {
+  const normalizedUrl = normalizeUrl(fileUrl)
+  const finalName = (originalName?.trim() || inferNameFromUrl(normalizedUrl)).slice(0, 120)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new UploadError('로그인이 필요합니다.')
+
+  const { data, error } = await supabase
+    .from('attachments')
+    .insert({
+      issue_id: issueId,
+      file_url: normalizedUrl,
+      file_type: fileType,
+      original_name: finalName,
+      is_approved: false,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    throw new UploadError(`URL 첨부 실패: ${error.message}`)
   }
 
   return data as Attachment

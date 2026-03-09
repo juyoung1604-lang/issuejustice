@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -234,34 +234,14 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
 .stat-box{text-align:center;padding:16px;background:var(--bg2);border:1px solid var(--bdr2);}
 .stat-num2{font-family:var(--f-mono);font-size:28px;font-weight:600;line-height:1;margin-bottom:4px;}
 .stat-lbl{font-family:var(--f-mono);font-size:9px;letter-spacing:1px;color:var(--t2);text-transform:uppercase;}
+
+/* EMPTY STATE */
+.empty{padding:48px 24px;text-align:center;font-family:var(--f-mono);font-size:11px;color:var(--t3);}
+.empty-icon{font-size:32px;margin-bottom:12px;opacity:.4;}
+
+/* LOADING */
+.loading{padding:24px;font-family:var(--f-mono);font-size:10px;color:var(--t2);display:flex;align-items:center;gap:8px;}
 `
-
-const PENDING = [
-  {id:243,title:'교통단속 카메라 사각지대 집중 단속 행정편의 의혹',summary:'대구 CCTV 미설치 200m 구간에 3개월간 847건 수동 단속',type:'행정편의',field:'교통',region:'대구',date:'2025-02-20',overview:'대구시 OO구 일대 CCTV 단속 사각지대 200m 구간에서 최근 3개월간 총 847건의 수동 단속이 집중되었습니다.',problem:'도로교통법상 단속 장소 선정은 교통사고 예방 목적에 따라야 하며, 단속 실적·수입 극대화를 위한 장소 선정은 허용되지 않습니다.',sense:'동일한 위반임에도 CCTV 유무에 따라 단속 여부가 달라지는 것은 법 집행의 자의성을 보여줍니다.'},
-  {id:244,title:'지자체 공공공사 수의계약 반복 발주 의혹',summary:'동일 업체에 3년간 수의계약 47건, 총액 23억원 발주',type:'권한남용',field:'건축',region:'경남',date:'2025-02-19',overview:'경남 OO시가 동일 업체에 3년간 수의계약 47건, 총액 23억원을 발주한 사실이 확인됩니다.',problem:'지방계약법상 수의계약은 예외적으로만 허용되며, 동일 업체 반복 발주는 입찰 방해 소지가 있습니다.',sense:'공정한 입찰 없이 특정 업체에 반복 발주하는 것은 공익을 침해하는 행위입니다.'},
-  {id:245,title:'건강보험 급여 항목 심사기준 지역별 상이 적용',summary:'동일 처방전에 서울은 급여 인정, 지방은 100% 삭감',type:'형평성',field:'기타',region:'전남',date:'2025-02-19',overview:'동일 처방전(희귀질환 치료제)에 대해 서울 소재 병원은 급여 인정, 전남 소재 병원은 100% 삭감된 사례입니다.',problem:'건강보험 심사평가원의 급여 기준은 전국 동일하게 적용되어야 합니다.',sense:'거주 지역에 따라 동일 질환의 치료 접근성이 달라지는 것은 의료 형평성 원칙에 반합니다.'},
-  {id:246,title:'소방 시설 점검 동일 위반 업소간 처분 차이',summary:'PC방 형사 고발, 인근 노래방 개선명령만 — 동일 위반',type:'형평성',field:'영업',region:'인천',date:'2025-02-18',overview:'인천 OO소방서가 동일한 스프링클러 미설치 위반에 대해 PC방은 형사 고발, 인근 노래방은 개선명령만 부과하였습니다.',problem:'화재예방법 동일 조항 위반에 대한 처분 기준이 업종에 따라 달리 적용된 근거가 없습니다.',sense:'동일 위반에 대한 처분 차이는 재량권 남용에 해당합니다.'},
-  {id:247,title:'폐업 신고 후 4개월간 부가세 납부 요구 지속',summary:'적법한 폐업 신고 완료 후 세무서 시스템 미갱신으로 고지 반복',type:'절차위반',field:'세무',region:'서울',date:'2025-02-18',overview:'2024년 10월 폐업 신고를 완료하였으나, 세무서 내부 시스템 미갱신으로 2025년 2월까지 부가세 납부 안내문이 지속 발송되었습니다.',problem:'국세기본법상 폐업 신고 처리는 신고일로부터 즉시 효력이 발생합니다.',sense:'행정기관 내부 오류를 납세자에게 전가하는 것은 납세자 권익을 침해합니다.'},
-  {id:248,title:'동일 위반 건물에 인접 자치구 처분 7배 차이',summary:'A구 50만원 vs B구 350만원 — 동일 건축물 유지관리 위반',type:'형평성',field:'건축',region:'서울',date:'2025-02-20',overview:'서울 인접 두 자치구(A구, B구)에서 동일한 건축물 유지관리 위반 기준으로 각각 50만원, 350만원의 과태료가 부과된 사례입니다.',problem:'서울시 건축 조례 동일 조항의 위반 과태료 기준은 구별로 차이가 없어야 합니다.',sense:'같은 서울시 내에서 자치구에 따라 처벌이 7배 차이나는 것은 법 앞의 평등 원칙에 반합니다.'},
-]
-
-const ALL_ISSUES = [
-  {id:1,title:'동일 경범죄 위반 지역별 처벌 최대 10배 차이',status:'공론화진행',field:'형사',region:'서울',support:2341,pub:true},
-  {id:2,title:'소규모 자영업자 세무조사 형평성 문제',status:'검증중',field:'세무',region:'경기',support:1892,pub:true},
-  {id:3,title:'건축물 용도변경 대기업 vs 영세업소 차별 처분',status:'기관전달',field:'건축',region:'부산',support:1547,pub:true},
-  {id:4,title:'노동감독관 체불임금 신고 4개월째 미착수',status:'접수됨',field:'노동',region:'인천',support:983,pub:true},
-  {id:5,title:'교통단속 카메라 사각지대 집중 수동 단속',status:'검증중',field:'교통',region:'대구',support:754,pub:true},
-  {id:6,title:'영업허가 갱신 서류 관청 내부 분실 후 허가 취소',status:'공론화진행',field:'영업',region:'광주',support:1203,pub:true},
-  {id:7,title:'고용노동부 직업훈련 지원금 기준 불명확',status:'종결',field:'노동',region:'대전',support:412,pub:true},
-  {id:8,title:'공원 내 소음 단속 기준 업소별 차별 적용',status:'검증중',field:'환경',region:'서울',support:623,pub:true},
-]
-
-const FILES = [
-  {id:1,name:'처분서_가림처리_243.pdf',type:'처분서',issue:'#243 교통단속 사각지대',date:'2025-02-20',size:'2.1 MB'},
-  {id:2,name:'공문_수의계약_244.pdf',type:'공문',issue:'#244 수의계약 반복 발주',date:'2025-02-19',size:'4.8 MB'},
-  {id:3,name:'처분서_건강보험_245.jpg',type:'처분서',issue:'#245 건강보험 급여 차별',date:'2025-02-19',size:'1.3 MB'},
-  {id:4,name:'공문_소방점검_246.pdf',type:'공문',issue:'#246 소방시설 처분 차이',date:'2025-02-18',size:'3.2 MB'},
-]
 
 const COMMENTS = [
   {type:'사실보완',content:'관련 사례로 2023년 서울행정법원 판결이 있습니다.',author:'user_a9k2',issue:'#241',time:'15분 전',flagged:false},
@@ -272,16 +252,32 @@ const COMMENTS = [
 ]
 
 const REPORTS_DATA = [
-  {id:1,type:'개인정보 침해',title:'#237 세무조사 형평성 이슈',reason:'게시글에 특정 세무공무원 실명이 포함되어 있습니다. 개인정보 침해 소지가 있습니다.',reporter:'user_f5r2',time:'1시간 전'},
-  {id:2,type:'허위사실',title:'#231 노동청 민원 처리 지연',reason:'사실과 다른 내용이 포함되어 있습니다. 처리 기간이 과장되어 있습니다.',reporter:'user_g6s8',time:'3시간 전'},
-  {id:3,type:'비방·욕설',title:'#228 교통 단속 민원',reason:'댓글에 특정인에 대한 욕설이 포함되어 있어 신고합니다.',reporter:'user_h4t3',time:'5시간 전'},
+  {id:'r1',type:'개인정보 침해',title:'세무조사 형평성 이슈',reason:'게시글에 특정 세무공무원 실명이 포함되어 있습니다. 개인정보 침해 소지가 있습니다.',reporter:'user_f5r2',time:'1시간 전'},
+  {id:'r2',type:'허위사실',title:'노동청 민원 처리 지연',reason:'사실과 다른 내용이 포함되어 있습니다. 처리 기간이 과장되어 있습니다.',reporter:'user_g6s8',time:'3시간 전'},
+  {id:'r3',type:'비방·욕설',title:'교통 단속 민원',reason:'댓글에 특정인에 대한 욕설이 포함되어 있어 신고합니다.',reporter:'user_h4t3',time:'5시간 전'},
 ]
 
 type Tab = 'dashboard'|'pending'|'all'|'statusmgmt'|'files'|'comments'|'reports'|'analytics'|'settings'
 
+interface Issue {
+  id: string
+  title: string
+  summary: string
+  enforcement_type: string
+  field_category: string
+  region: string
+  occurred_at: string | null
+  status: string
+  is_published: boolean
+  support_count: number
+  overview: string
+  problem: string
+  sense: string
+  requests: string[]
+  created_at: string
+}
+
 interface ToastMsg { id: number; msg: string; type: string }
-interface DetailIssue { id: number; title: string; overview: string; problem: string; sense: string; type: string; field: string; region: string; date: string }
-interface StatusIssue { id: number; title: string; status: string }
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -289,16 +285,21 @@ export default function AdminPage() {
   const [uptime, setUptime] = useState('00:00:00')
   const [dashDate, setDashDate] = useState('')
   const [toasts, setToasts] = useState<ToastMsg[]>([])
-  const [pendingList, setPendingList] = useState(PENDING)
-  const [fileList, setFileList] = useState(FILES)
+
+  // Real data from Supabase
+  const [pendingList, setPendingList] = useState<Issue[]>([])
+  const [allIssues, setAllIssues] = useState<Issue[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Mock data (comments/reports not yet submittable from homepage)
   const [reportList, setReportList] = useState(REPORTS_DATA)
-  const [commentList, setCommentList] = useState(COMMENTS)
+  const [commentList] = useState(COMMENTS)
   const [hiddenComments, setHiddenComments] = useState<number[]>([])
 
   // Modals
-  const [detailIssue, setDetailIssue] = useState<DetailIssue | null>(null)
-  const [statusIssue, setStatusIssue] = useState<StatusIssue | null>(null)
-  const [rejectIssue, setRejectIssue] = useState<{id:number,title:string} | null>(null)
+  const [detailIssue, setDetailIssue] = useState<Issue | null>(null)
+  const [statusIssue, setStatusIssue] = useState<{id:string;title:string;status:string} | null>(null)
+  const [rejectIssue, setRejectIssue] = useState<{id:string;title:string} | null>(null)
   const [selSt, setSelSt] = useState('')
   const [rejectReason, setRejectReason] = useState('')
   const [statusNote, setStatusNote] = useState('')
@@ -306,7 +307,30 @@ export default function AdminPage() {
   // Toggles
   const [toggles, setToggles] = useState({ accept:true, comment:true, guest:true, mask:true })
 
+  // Search/filter state for all issues tab
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [fieldFilter, setFieldFilter] = useState('')
+
   const startTime = typeof window !== 'undefined' ? Date.now() : 0
+
+  // Data loading
+  const loadPending = useCallback(async () => {
+    const res = await fetch('/api/admin/issues?filter=pending')
+    const { data } = await res.json()
+    if (data) setPendingList(data)
+  }, [])
+
+  const loadAll = useCallback(async () => {
+    const res = await fetch('/api/admin/issues')
+    const { data } = await res.json()
+    if (data) setAllIssues(data)
+  }, [])
+
+  useEffect(() => {
+    setIsLoading(true)
+    Promise.all([loadPending(), loadAll()]).finally(() => setIsLoading(false))
+  }, [loadPending, loadAll])
 
   const toast = (msg: string, type = '') => {
     const id = Date.now()
@@ -336,55 +360,118 @@ export default function AdminPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const approveIssue = (id: number) => {
-    setPendingList(l => l.filter(x => x.id !== id))
-    toast(`이슈 #${id} 승인 완료 — 공개 처리되었습니다.`, 'ok')
+  const shortId = (id: string) => id.slice(0, 8).toUpperCase()
+
+  const approveIssue = async (id: string) => {
+    const res = await fetch(`/api/admin/issues/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    })
+    if (res.ok) {
+      setPendingList(l => l.filter(x => x.id !== id))
+      setAllIssues(l => l.map(x => x.id === id ? {...x, is_published: true, status: '검증중'} : x))
+      toast(`이슈 승인 완료 — 공개 처리되었습니다.`, 'ok')
+    } else {
+      toast('승인 처리 중 오류가 발생했습니다.', 'err')
+    }
   }
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectReason.trim()) { toast('거절 사유를 입력하세요.', 'err'); return }
     if (rejectIssue) {
-      setPendingList(l => l.filter(x => x.id !== rejectIssue.id))
-      toast(`이슈 #${rejectIssue.id} 거절 처리되었습니다.`, 'err')
+      const res = await fetch(`/api/admin/issues/${rejectIssue.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' }),
+      })
+      if (res.ok) {
+        setPendingList(l => l.filter(x => x.id !== rejectIssue.id))
+        setAllIssues(l => l.filter(x => x.id !== rejectIssue.id))
+        toast(`이슈 거절 처리되었습니다.`, 'err')
+      } else {
+        toast('거절 처리 중 오류가 발생했습니다.', 'err')
+      }
     }
     setRejectIssue(null); setRejectReason('')
   }
 
-  const submitStatus = () => {
+  const submitStatus = async () => {
     if (!selSt) { toast('상태를 선택하세요.', 'err'); return }
-    toast(`이슈 #${statusIssue?.id} → [${selSt}] 변경 완료`, 'ok')
+    if (statusIssue) {
+      const res = await fetch(`/api/admin/issues/${statusIssue.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'status', status: selSt, note: statusNote }),
+      })
+      if (res.ok) {
+        setAllIssues(l => l.map(x => x.id === statusIssue.id ? {...x, status: selSt} : x))
+        setPendingList(l => l.map(x => x.id === statusIssue.id ? {...x, status: selSt} : x))
+        toast(`이슈 → [${selSt}] 변경 완료`, 'ok')
+      } else {
+        toast('상태 변경 중 오류가 발생했습니다.', 'err')
+      }
+    }
     setStatusIssue(null); setSelSt(''); setStatusNote('')
   }
 
-  const approveFile = (id: number) => { setFileList(l => l.filter(x => x.id !== id)); toast('첨부파일 승인 완료', 'ok') }
-  const rejectFile = (id: number) => { setFileList(l => l.filter(x => x.id !== id)); toast('첨부파일 거절됨', 'err') }
-  const resolveReport = (id: number, status: string) => { setReportList(l => l.filter(x => x.id !== id)); toast(`신고 #${id} ${status} 처리됨`, status==='기각'?'warn':'ok') }
+  const resolveReport = (id: string, status: string) => {
+    setReportList(l => l.filter(x => x.id !== id))
+    toast(`신고 ${status} 처리됨`, status==='기각'?'warn':'ok')
+  }
   const hideComment = (idx: number) => { setHiddenComments(h => [...h, idx]); toast('댓글 숨김 처리됨', 'warn') }
+
+  // Computed stats from real data
+  const totalIssues = allIssues.length
+  const totalSupport = allIssues.reduce((sum, i) => sum + (i.support_count || 0), 0)
+
+  const statusCounts = allIssues.reduce((acc, i) => { acc[i.status] = (acc[i.status] || 0) + 1; return acc }, {} as Record<string,number>)
+  const fieldCounts = allIssues.reduce((acc, i) => { acc[i.field_category] = (acc[i.field_category] || 0) + 1; return acc }, {} as Record<string,number>)
+
+  const maxField = Math.max(...Object.values(fieldCounts), 1)
+  const topFields = Object.entries(fieldCounts).sort((a,b) => b[1]-a[1]).slice(0, 5)
+  const topIssues = [...allIssues].sort((a,b) => b.support_count - a.support_count).slice(0, 5)
+
+  const barData = [
+    {label:'접수됨', val: statusCounts['접수됨']||0, pct: Math.round(((statusCounts['접수됨']||0)/Math.max(totalIssues,1))*100), color:'var(--amber)'},
+    {label:'검증중', val: statusCounts['검증중']||0, pct: Math.round(((statusCounts['검증중']||0)/Math.max(totalIssues,1))*100), color:'var(--blue)'},
+    {label:'공론화', val: statusCounts['공론화진행']||0, pct: Math.round(((statusCounts['공론화진행']||0)/Math.max(totalIssues,1))*100), color:'var(--teal)'},
+    {label:'기관전달', val: statusCounts['기관전달']||0, pct: Math.round(((statusCounts['기관전달']||0)/Math.max(totalIssues,1))*100), color:'var(--red)'},
+    {label:'종결', val: statusCounts['종결']||0, pct: Math.round(((statusCounts['종결']||0)/Math.max(totalIssues,1))*100), color:'var(--t2)'},
+  ]
+
+  // Filtered issues for "all issues" tab
+  const filteredIssues = allIssues.filter(issue => {
+    const matchesSearch = !searchQuery || issue.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = !statusFilter || issue.status === statusFilter
+    const matchesField = !fieldFilter || issue.field_category === fieldFilter
+    return matchesSearch && matchesStatus && matchesField
+  })
+
+  const formatDate = (s: string | null) => {
+    if (!s) return '-'
+    return new Date(s).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' })
+  }
 
   const NAV = [
     { group:'Overview', items:[{id:'dashboard',ico:'◈',label:'대시보드'}] },
-    { group:'이슈 관리', items:[{id:'pending',ico:'◉',label:'승인 대기',badge:pendingList.length,bc:'nb-r'},{id:'all',ico:'☰',label:'전체 이슈',badge:248,bc:'nb-t'},{id:'statusmgmt',ico:'◑',label:'상태 관리'}] },
-    { group:'콘텐츠', items:[{id:'files',ico:'📎',label:'첨부파일 검토',badge:fileList.length,bc:'nb-a'},{id:'comments',ico:'💬',label:'댓글 관리'},{id:'reports',ico:'⚑',label:'신고 처리',badge:reportList.length,bc:'nb-r'}] },
-    { group:'분석·시스템', items:[{id:'analytics',ico:'▦',label:'통계·분석'},{id:'settings',ico:'⚙',label:'시스템 설정'}] },
+    { group:'이슈 관리', items:[
+      {id:'pending',ico:'◉',label:'승인 대기',badge:pendingList.length,bc:'nb-r'},
+      {id:'all',ico:'☰',label:'전체 이슈',badge:totalIssues,bc:'nb-t'},
+      {id:'statusmgmt',ico:'◑',label:'상태 관리'},
+    ]},
+    { group:'콘텐츠', items:[
+      {id:'comments',ico:'💬',label:'댓글 관리'},
+      {id:'reports',ico:'⚑',label:'신고 처리',badge:reportList.length,bc:'nb-r'},
+    ]},
+    { group:'분석·시스템', items:[
+      {id:'analytics',ico:'▦',label:'통계·분석'},
+      {id:'settings',ico:'⚙',label:'시스템 설정'},
+    ]},
   ]
 
   const toastIcons: Record<string,string> = { ok:'✓', err:'✕', warn:'⚠', '':'●' }
   const toastColors: Record<string,string> = { ok:'var(--green)', err:'var(--red)', warn:'var(--amber)', '':'var(--teal)' }
-
-  const barData = [
-    {label:'접수됨',val:42,pct:28,color:'var(--amber)'},
-    {label:'검증중',val:18,pct:12,color:'var(--blue)'},
-    {label:'공론화',val:28,pct:19,color:'var(--teal)'},
-    {label:'기관전달',val:12,pct:8,color:'var(--red)'},
-    {label:'종결',val:148,pct:100,color:'var(--t2)'},
-  ]
-  const fieldData = [
-    {label:'형사',val:72,pct:100,color:'linear-gradient(90deg,var(--teal),var(--blue))'},
-    {label:'교통',val:55,pct:76,color:'var(--teal)'},
-    {label:'세무',val:40,pct:56,color:'var(--teal)'},
-    {label:'건축',val:33,pct:46,color:'var(--teal)'},
-    {label:'노동',val:28,pct:39,color:'var(--teal)'},
-  ]
 
   return (
     <>
@@ -408,7 +495,9 @@ export default function AdminPage() {
           <div className="tb-clock">{clock}</div>
         </div>
         <div className="tb-right">
-          <button className="tb-icon" onClick={() => toast('신고 3건·첨부파일 4건 승인 대기 중입니다.','warn')}>🔔<span className="nb">3</span></button>
+          <button className="tb-icon" onClick={() => toast(`승인 대기 ${pendingList.length}건 · 신고 ${reportList.length}건 처리 필요`, 'warn')}>
+            🔔<span className="nb">{pendingList.length + reportList.length}</span>
+          </button>
           <button className="tb-icon" onClick={() => toast('리포트 생성 기능 준비 중입니다.')}>📊</button>
           <div className="tb-divider" />
           <div className="admin-chip">
@@ -436,9 +525,9 @@ export default function AdminPage() {
         </button>
         <div className="sb-foot">
           <div className="sbf-row"><div className="sbf-dot dot-ok" />데이터베이스 정상</div>
-          <div className="sbf-row"><div className="sbf-dot dot-ok" />Storage 정상</div>
+          <div className="sbf-row"><div className="sbf-dot dot-ok" />Supabase 연결됨</div>
           <div className="sbf-row"><div className="sbf-dot dot-warn" />업타임: {uptime}</div>
-          <div style={{marginTop:'8px',color:'var(--t3)'}}>BUILD 2025.02.23</div>
+          <div style={{marginTop:'8px',color:'var(--t3)'}}>BUILD 2026.03.10</div>
         </div>
       </nav>
 
@@ -455,64 +544,73 @@ export default function AdminPage() {
                 <div className="ph-sub">{dashDate}</div>
               </div>
               <div className="ph-actions">
-                <button className="btn btn-g sm" onClick={() => toast('새로고침 완료')}>↻ 새로고침</button>
+                <button className="btn btn-g sm" onClick={() => { loadPending(); loadAll(); toast('새로고침 완료','ok') }}>↻ 새로고침</button>
                 <button className="btn btn-t sm" onClick={() => toast('PDF 리포트 생성 중...','ok')}>📊 리포트 생성</button>
               </div>
             </div>
             <div className="kpi-grid mb20">
-              <div className="kpi c-t"><div className="kpi-bar" /><div className="kpi-lbl">전체 이슈</div><div className="kpi-num">248</div><div className="kpi-sub">▲ 12건 이번 주</div><div className="kpi-ico">📋</div></div>
+              <div className="kpi c-t"><div className="kpi-bar" /><div className="kpi-lbl">전체 이슈</div><div className="kpi-num">{totalIssues}</div><div className="kpi-sub">Supabase 실시간</div><div className="kpi-ico">📋</div></div>
               <div className="kpi c-a"><div className="kpi-bar" /><div className="kpi-lbl">승인 대기</div><div className="kpi-num">{pendingList.length}</div><div className="kpi-sub">검토 필요</div><div className="kpi-ico">⏳</div></div>
-              <div className="kpi c-r"><div className="kpi-bar" /><div className="kpi-lbl">미처리 신고</div><div className="kpi-num">{reportList.length}</div><div className="kpi-sub">▲ 1건 신규</div><div className="kpi-ico">⚑</div></div>
-              <div className="kpi c-b"><div className="kpi-bar" /><div className="kpi-lbl">총 추천 수</div><div className="kpi-num">18.4k</div><div className="kpi-sub">▲ 342 오늘</div><div className="kpi-ico">👍</div></div>
+              <div className="kpi c-r"><div className="kpi-bar" /><div className="kpi-lbl">미처리 신고</div><div className="kpi-num">{reportList.length}</div><div className="kpi-sub">처리 필요</div><div className="kpi-ico">⚑</div></div>
+              <div className="kpi c-b"><div className="kpi-bar" /><div className="kpi-lbl">총 추천 수</div><div className="kpi-num">{totalSupport >= 1000 ? `${(totalSupport/1000).toFixed(1)}k` : totalSupport}</div><div className="kpi-sub">누적 공감</div><div className="kpi-ico">👍</div></div>
             </div>
             <div className="g-main">
               <div className="panel">
                 <div className="panel-head"><span className="panel-title">이슈 상태별 현황</span><span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t2)'}}>REALTIME</span></div>
                 <div className="panel-body">
-                  <div className="barchart mb20">
-                    {barData.map(b => (
-                      <div key={b.label} className="brow">
-                        <div className="blbl">{b.label}</div>
-                        <div className="btrack"><div className="bfill" style={{background:b.color,width:`${b.pct}%`}} /></div>
-                        <div className="bval">{b.val}</div>
+                  {totalIssues === 0 ? (
+                    <div className="empty"><div className="empty-icon">📊</div>데이터가 없습니다</div>
+                  ) : (
+                    <>
+                      <div className="barchart mb20">
+                        {barData.map(b => (
+                          <div key={b.label} className="brow">
+                            <div className="blbl">{b.label}</div>
+                            <div className="btrack"><div className="bfill" style={{background:b.color,width:`${b.pct}%`}} /></div>
+                            <div className="bval">{b.val}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div style={{borderTop:'1px solid var(--bdr2)',paddingTop:'16px'}}>
-                    <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'1.5px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'12px'}}>분야별 TOP 5</div>
-                    <div className="barchart">
-                      {fieldData.map(b => (
-                        <div key={b.label} className="brow">
-                          <div className="blbl">{b.label}</div>
-                          <div className="btrack"><div className="bfill" style={{background:b.color,width:`${b.pct}%`}} /></div>
-                          <div className="bval">{b.val}</div>
+                      <div style={{borderTop:'1px solid var(--bdr2)',paddingTop:'16px'}}>
+                        <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'1.5px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'12px'}}>분야별 TOP 5</div>
+                        <div className="barchart">
+                          {topFields.map(([label, val]) => (
+                            <div key={label} className="brow">
+                              <div className="blbl">{label}</div>
+                              <div className="btrack"><div className="bfill" style={{background:'var(--teal)',width:`${Math.round(val/maxField*100)}%`}} /></div>
+                              <div className="bval">{val}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="g-col">
                 <div className="panel">
-                  <div className="panel-head"><span className="panel-title">주간 추천 TOP 5</span></div>
-                  <div>
-                    {[{n:'1',cls:'r1',t:'동일 경범죄 지역별 처벌 10배 차이',c:'2,341'},{n:'2',cls:'r2',t:'소규모 자영업자 세무조사 형평성',c:'1,892'},{n:'3',cls:'r3',t:'건축물 용도변경 대기업 vs 영세업소',c:'1,547'},{n:'4',cls:'',t:'영업허가 서류 관청 내부 분실',c:'1,203'},{n:'5',cls:'',t:'노동감독관 체불임금 4개월 미착수',c:'983'}].map(r => (
-                      <div key={r.n} className="rank-row">
-                        <div className={`rank-n${r.cls?' '+r.cls:''}`}>{r.n}</div>
-                        <div className="rank-t">{r.t}</div>
-                        <div className="rank-c">{r.c}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="panel-head"><span className="panel-title">추천 TOP 5</span></div>
+                  {topIssues.length === 0 ? (
+                    <div className="empty"><div className="empty-icon">🏆</div>이슈 없음</div>
+                  ) : topIssues.map((issue, i) => (
+                    <div key={issue.id} className="rank-row" onClick={() => setDetailIssue(issue)}>
+                      <div className={`rank-n${i===0?' r1':i===1?' r2':i===2?' r3':''}`}>{i+1}</div>
+                      <div className="rank-t">{issue.title}</div>
+                      <div className="rank-c">{issue.support_count.toLocaleString()}</div>
+                    </div>
+                  ))}
                 </div>
                 <div className="panel" style={{flex:1}}>
-                  <div className="panel-head"><span className="panel-title">최근 활동 로그</span></div>
+                  <div className="panel-head"><span className="panel-title">최근 등록 이슈</span></div>
                   <div className="panel-body" style={{padding:'0 18px'}}>
-                    <div className="feed-item"><div className="fdot fd-t" /><div className="ftxt"><strong>이슈 #248</strong> 신규 접수 — 교통단속 사각지대</div><div className="ftime">방금</div></div>
-                    <div className="feed-item"><div className="fdot fd-a" /><div className="ftxt"><strong>첨부파일 4건</strong> 승인 대기 중</div><div className="ftime">12분</div></div>
-                    <div className="feed-item"><div className="fdot fd-b" /><div className="ftxt">이슈 #241 → <strong>공론화진행</strong> 전환</div><div className="ftime">1시간</div></div>
-                    <div className="feed-item"><div className="fdot fd-r" /><div className="ftxt"><strong>신고</strong> — #237 개인정보 침해 의심</div><div className="ftime">2시간</div></div>
-                    <div className="feed-item"><div className="fdot fd-g" /><div className="ftxt">이슈 #239 <strong>승인·공개</strong> 완료</div><div className="ftime">3시간</div></div>
+                    {allIssues.slice(0, 5).map(issue => (
+                      <div key={issue.id} className="feed-item">
+                        <div className={`fdot ${issue.is_published ? 'fd-g' : 'fd-a'}`} />
+                        <div className="ftxt"><strong>{issue.title.slice(0,24)}{issue.title.length>24?'…':''}</strong> — {issue.region}</div>
+                        <div className="ftime">{formatDate(issue.created_at)}</div>
+                      </div>
+                    ))}
+                    {allIssues.length === 0 && <div className="empty"><div className="empty-icon">📝</div>이슈 없음</div>}
                   </div>
                 </div>
               </div>
@@ -524,66 +622,101 @@ export default function AdminPage() {
         {tab === 'pending' && (
           <div className="tab-content">
             <div className="ph">
-              <div><div className="ph-eyebrow">Issue Management</div><div className="ph-title">승인 대기</div><div className="ph-sub">관리자 검토 후 공개됩니다. {pendingList.length}건 대기 중.</div></div>
-              <div className="ph-actions"><button className="btn btn-g sm" onClick={() => toast('일괄 처리 기능 준비 중','warn')}>일괄 처리</button></div>
+              <div>
+                <div className="ph-eyebrow">Issue Management</div>
+                <div className="ph-title">승인 대기</div>
+                <div className="ph-sub">관리자 검토 후 공개됩니다. {pendingList.length}건 대기 중.</div>
+              </div>
+              <div className="ph-actions">
+                <button className="btn btn-g sm" onClick={() => { loadPending(); toast('새로고침 완료','ok') }}>↻ 새로고침</button>
+              </div>
             </div>
-            <div className="panel">
-              <table className="tbl">
-                <thead><tr><th>#</th><th>제목 / 요약</th><th>유형</th><th>분야</th><th>지역</th><th>제출일</th><th>액션</th></tr></thead>
-                <tbody>
-                  {pendingList.map(p => (
-                    <tr key={p.id} onClick={() => setDetailIssue(p)}>
-                      <td className="tm">#{p.id}</td>
-                      <td><div className="tt">{p.title}</div><div className="ts">{p.summary}</div></td>
-                      <td><span className="tag">{p.type}</span></td>
-                      <td><span className="tag">{p.field}</span></td>
-                      <td className="tm">{p.region}</td>
-                      <td className="tm">{p.date}</td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
-                          <button className="btn btn-t sm" onClick={() => approveIssue(p.id)}>✓ 승인</button>
-                          <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:p.id,title:p.title,status:'접수됨'}); setSelSt('') }}>상태</button>
-                          <button className="btn btn-r sm" onClick={() => { setRejectIssue({id:p.id,title:p.title}); setRejectReason('') }}>✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {isLoading ? (
+              <div className="loading">⟳ 데이터 로딩 중...</div>
+            ) : pendingList.length === 0 ? (
+              <div className="empty"><div className="empty-icon">✅</div>승인 대기 이슈가 없습니다</div>
+            ) : (
+              <div className="panel">
+                <table className="tbl">
+                  <thead><tr><th>ID</th><th>제목 / 요약</th><th>유형</th><th>분야</th><th>지역</th><th>제출일</th><th>액션</th></tr></thead>
+                  <tbody>
+                    {pendingList.map(p => (
+                      <tr key={p.id} onClick={() => setDetailIssue(p)}>
+                        <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(p.id)}</td>
+                        <td><div className="tt">{p.title}</div><div className="ts">{p.summary || p.overview?.slice(0,80)}</div></td>
+                        <td><span className="tag">{p.enforcement_type}</span></td>
+                        <td><span className="tag">{p.field_category}</span></td>
+                        <td className="tm">{p.region}</td>
+                        <td className="tm">{formatDate(p.created_at)}</td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                            <button className="btn btn-t sm" onClick={() => approveIssue(p.id)}>✓ 승인</button>
+                            <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:p.id,title:p.title,status:p.status}); setSelSt('') }}>상태</button>
+                            <button className="btn btn-r sm" onClick={() => { setRejectIssue({id:p.id,title:p.title}); setRejectReason('') }}>✕</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {/* ALL ISSUES */}
         {tab === 'all' && (
           <div className="tab-content">
-            <div className="ph"><div><div className="ph-eyebrow">Issue Management</div><div className="ph-title">전체 이슈</div><div className="ph-sub">총 248건 등록됨</div></div></div>
+            <div className="ph">
+              <div><div className="ph-eyebrow">Issue Management</div><div className="ph-title">전체 이슈</div><div className="ph-sub">총 {totalIssues}건 등록됨</div></div>
+              <div className="ph-actions">
+                <button className="btn btn-g sm" onClick={() => { loadAll(); toast('새로고침 완료','ok') }}>↻ 새로고침</button>
+              </div>
+            </div>
             <div style={{display:'flex',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
-              <input className="finput" style={{maxWidth:'240px',flex:1}} placeholder="제목 검색..." />
-              <select className="fselect" style={{width:'auto'}}><option>전체 상태</option><option>접수됨</option><option>검증중</option><option>공론화진행</option><option>기관전달</option><option>종결</option></select>
-              <select className="fselect" style={{width:'auto'}}><option>전체 분야</option><option>형사</option><option>세무</option><option>건축</option><option>노동</option><option>교통</option></select>
+              <input
+                className="finput"
+                style={{maxWidth:'240px',flex:1}}
+                placeholder="제목 검색..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <select className="fselect" style={{width:'auto'}} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="">전체 상태</option>
+                <option>접수됨</option><option>검증중</option><option>공론화진행</option><option>기관전달</option><option>종결</option>
+              </select>
+              <select className="fselect" style={{width:'auto'}} value={fieldFilter} onChange={e => setFieldFilter(e.target.value)}>
+                <option value="">전체 분야</option>
+                <option>형사</option><option>세무</option><option>건축</option><option>노동</option><option>교통</option><option>영업</option><option>환경</option><option>기타</option>
+              </select>
             </div>
-            <div className="panel">
-              <table className="tbl">
-                <thead><tr><th>#</th><th>제목</th><th>상태</th><th>분야</th><th>지역</th><th>추천</th><th>공개</th><th>액션</th></tr></thead>
-                <tbody>
-                  {ALL_ISSUES.map(i => (
-                    <tr key={i.id}>
-                      <td className="tm" style={{color:'var(--t2)'}}>#{i.id}</td>
-                      <td><div className="tt">{i.title}</div></td>
-                      <td><span className={`badge b-${i.status}`}>{i.status}</span></td>
-                      <td><span className="tag">{i.field}</span></td>
-                      <td className="tm">{i.region}</td>
-                      <td className="tm" style={{color:'var(--teal)'}}>{i.support.toLocaleString()}</td>
-                      <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:i.pub?'var(--green)':'var(--red)'}}>{i.pub?'● 공개':'○ 비공개'}</span></td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:i.id,title:i.title,status:i.status}); setSelSt('') }}>상태변경</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {isLoading ? (
+              <div className="loading">⟳ 데이터 로딩 중...</div>
+            ) : filteredIssues.length === 0 ? (
+              <div className="empty"><div className="empty-icon">🔍</div>조건에 맞는 이슈가 없습니다</div>
+            ) : (
+              <div className="panel">
+                <table className="tbl">
+                  <thead><tr><th>ID</th><th>제목</th><th>상태</th><th>분야</th><th>지역</th><th>추천</th><th>공개</th><th>액션</th></tr></thead>
+                  <tbody>
+                    {filteredIssues.map(issue => (
+                      <tr key={issue.id} onClick={() => setDetailIssue(issue)}>
+                        <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(issue.id)}</td>
+                        <td><div className="tt">{issue.title}</div></td>
+                        <td><span className={`badge b-${issue.status}`}>{issue.status}</span></td>
+                        <td><span className="tag">{issue.field_category}</span></td>
+                        <td className="tm">{issue.region}</td>
+                        <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
+                        <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:issue.is_published?'var(--green)':'var(--red)'}}>{issue.is_published?'● 공개':'○ 비공개'}</span></td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>상태변경</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -591,65 +724,26 @@ export default function AdminPage() {
         {tab === 'statusmgmt' && (
           <div className="tab-content">
             <div className="ph"><div><div className="ph-eyebrow">Issue Management</div><div className="ph-title">상태 관리</div><div className="ph-sub">이슈 진행 상태를 변경합니다.</div></div></div>
-            <div className="g2">
-              <div className="panel">
-                <div className="panel-head"><span className="panel-title">공론화 진행 중</span></div>
-                <table className="tbl"><thead><tr><th>제목</th><th>추천</th><th>변경</th></tr></thead><tbody>
-                  {[{id:1,title:'동일 경범죄 위반 지역별 처벌 10배 차이',support:'2,341'},{id:6,title:'영업허가 갱신 서류 분실 후 허가 취소',support:'1,203'}].map(r=>(
-                    <tr key={r.id} onClick={() => { setStatusIssue({id:r.id,title:r.title,status:'공론화진행'}); setSelSt('') }}>
-                      <td><div className="tt">{r.title}</div></td>
-                      <td className="tm" style={{color:'var(--teal)'}}>{r.support}</td>
-                      <td><button className="btn btn-g sm" onClick={e=>{e.stopPropagation();setStatusIssue({id:r.id,title:r.title,status:'공론화진행'});setSelSt('')}}>변경</button></td>
-                    </tr>
-                  ))}
-                </tbody></table>
-              </div>
-              <div className="panel">
-                <div className="panel-head"><span className="panel-title">기관 전달</span></div>
-                <table className="tbl"><thead><tr><th>제목</th><th>추천</th><th>변경</th></tr></thead><tbody>
-                  <tr onClick={() => { setStatusIssue({id:3,title:'건축물 용도변경 대기업 vs 영세업소 차별',status:'기관전달'}); setSelSt('') }}>
-                    <td><div className="tt">건축물 용도변경 대기업 vs 영세업소 차별</div></td>
-                    <td className="tm" style={{color:'var(--red)'}}>1,547</td>
-                    <td><button className="btn btn-g sm" onClick={e=>{e.stopPropagation();setStatusIssue({id:3,title:'건축물 용도변경',status:'기관전달'});setSelSt('')}}>변경</button></td>
-                  </tr>
-                </tbody></table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FILES */}
-        {tab === 'files' && (
-          <div className="tab-content">
-            <div className="ph"><div><div className="ph-eyebrow">Content</div><div className="ph-title">첨부파일 검토</div><div className="ph-sub">개인정보 가림 처리 여부 확인 후 승인하세요.</div></div></div>
-            <div className="panel">
-              <table className="tbl">
-                <thead><tr><th>파일명</th><th>유형</th><th>연결 이슈</th><th>제출일</th><th>크기</th><th>액션</th></tr></thead>
-                <tbody>
-                  {fileList.map(f => (
-                    <tr key={f.id}>
-                      <td>
-                        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                          <div style={{width:'30px',height:'36px',background:'var(--bg3)',border:'1px solid var(--bdr2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',flexShrink:0}}>{f.type==='처분서'?'📄':'📋'}</div>
-                          <span style={{fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--t0)'}}>{f.name}</span>
-                        </div>
-                      </td>
-                      <td><span className="tag">{f.type}</span></td>
-                      <td className="tm" style={{color:'var(--blue)'}}>{f.issue}</td>
-                      <td className="tm">{f.date}</td>
-                      <td className="tm" style={{color:'var(--t2)'}}>{f.size}</td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div style={{display:'flex',gap:'4px'}}>
-                          <button className="btn btn-g sm" onClick={() => toast('파일 미리보기 — 준비 중')}>보기</button>
-                          <button className="btn btn-t sm" onClick={() => approveFile(f.id)}>✓ 승인</button>
-                          <button className="btn btn-r sm" onClick={() => rejectFile(f.id)}>✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {(['공론화진행','검증중','기관전달','접수됨'] as const).map(st => {
+              const items = allIssues.filter(i => i.status === st)
+              return items.length > 0 ? (
+                <div key={st} className="panel mb16">
+                  <div className="panel-head"><span className={`badge b-${st}`}>{st}</span><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{items.length}건</span></div>
+                  <table className="tbl"><thead><tr><th>제목</th><th>지역</th><th>추천</th><th>등록일</th><th>변경</th></tr></thead><tbody>
+                    {items.map(issue => (
+                      <tr key={issue.id} onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>
+                        <td><div className="tt">{issue.title}</div></td>
+                        <td className="tm">{issue.region}</td>
+                        <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
+                        <td className="tm">{formatDate(issue.created_at)}</td>
+                        <td><button className="btn btn-g sm" onClick={e=>{e.stopPropagation();setStatusIssue({id:issue.id,title:issue.title,status:issue.status});setSelSt('')}}>변경</button></td>
+                      </tr>
+                    ))}
+                  </tbody></table>
+                </div>
+              ) : null
+            })}
+            {allIssues.length === 0 && <div className="empty"><div className="empty-icon">📊</div>이슈가 없습니다</div>}
           </div>
         )}
 
@@ -688,25 +782,25 @@ export default function AdminPage() {
         {tab === 'reports' && (
           <div className="tab-content">
             <div className="ph"><div><div className="ph-eyebrow">Content</div><div className="ph-title">신고 처리</div><div className="ph-sub">{reportList.length}건 처리 대기 중</div></div></div>
-            <div>
-              {reportList.map(r => (
-                <div key={r.id} className="rc">
-                  <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'12px'}}>
-                    <div style={{flex:1}}>
-                      <span className="rc-type">{r.type}</span>
-                      <div className="rc-title">{r.title}</div>
-                      <div className="rc-reason">{r.reason}</div>
-                      <div className="rc-foot"><div className="rc-meta">신고자: {r.reporter} · {r.time}</div></div>
-                    </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:'6px',flexShrink:0,marginTop:'4px'}}>
-                      <button className="btn btn-g sm" onClick={() => toast('이슈 페이지로 이동합니다.')}>이슈 확인</button>
-                      <button className="btn btn-r sm" onClick={() => resolveReport(r.id,'처리')}>처리 완료</button>
-                      <button className="btn btn-g sm" onClick={() => resolveReport(r.id,'기각')}>기각</button>
-                    </div>
+            {reportList.length === 0 ? (
+              <div className="empty"><div className="empty-icon">✅</div>처리할 신고가 없습니다</div>
+            ) : reportList.map(r => (
+              <div key={r.id} className="rc">
+                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'12px'}}>
+                  <div style={{flex:1}}>
+                    <span className="rc-type">{r.type}</span>
+                    <div className="rc-title">{r.title}</div>
+                    <div className="rc-reason">{r.reason}</div>
+                    <div className="rc-foot"><div className="rc-meta">신고자: {r.reporter} · {r.time}</div></div>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'6px',flexShrink:0,marginTop:'4px'}}>
+                    <button className="btn btn-g sm" onClick={() => toast('이슈 페이지로 이동합니다.')}>이슈 확인</button>
+                    <button className="btn btn-r sm" onClick={() => resolveReport(r.id,'처리')}>처리 완료</button>
+                    <button className="btn btn-g sm" onClick={() => resolveReport(r.id,'기각')}>기각</button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -714,61 +808,60 @@ export default function AdminPage() {
         {tab === 'analytics' && (
           <div className="tab-content">
             <div className="ph">
-              <div><div className="ph-eyebrow">Analytics</div><div className="ph-title">통계·분석</div><div className="ph-sub">2024년 9월 서비스 시작 이후</div></div>
+              <div><div className="ph-eyebrow">Analytics</div><div className="ph-title">통계·분석</div><div className="ph-sub">실시간 Supabase 데이터 기준</div></div>
               <div className="ph-actions"><button className="btn btn-t sm" onClick={() => toast('엑셀 내보내기 준비 중','ok')}>📥 내보내기</button></div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'20px'}}>
-              {[{n:'12',c:'var(--green)',l:'개선 사례'},{n:'9',c:'var(--teal)',l:'기관 전달'},{n:'4.2일',c:'var(--amber)',l:'평균 검토 기간'},{n:'96%',c:'var(--blue)',l:'이슈 승인율'}].map(s=>(
+              {[
+                {n: String(totalIssues), c:'var(--teal)', l:'전체 이슈'},
+                {n: String(pendingList.length), c:'var(--amber)', l:'승인 대기'},
+                {n: String(totalSupport >= 1000 ? `${(totalSupport/1000).toFixed(1)}k` : totalSupport), c:'var(--blue)', l:'누적 추천'},
+                {n: String(allIssues.filter(i=>i.is_published).length), c:'var(--green)', l:'공개 이슈'},
+              ].map(s=>(
                 <div key={s.l} className="stat-box"><div className="stat-num2" style={{color:s.c}}>{s.n}</div><div className="stat-lbl">{s.l}</div></div>
               ))}
             </div>
             <div className="g2 mb16">
               <div className="panel">
-                <div className="panel-head"><span className="panel-title">월별 이슈 등록 추이</span></div>
+                <div className="panel-head"><span className="panel-title">상태별 분포</span></div>
                 <div className="panel-body">
-                  <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t2)',marginBottom:'12px'}}>단위: 건 / ■ = 4건</div>
-                  <div style={{fontFamily:'var(--f-mono)',fontSize:'12px',lineHeight:2.8,color:'var(--teal)'}}>
-                    {[['9월','████████','32'],['10월','████████████','48'],['11월','██████████████████','71'],['12월','████████████████████████','97']].map(([m,b,n])=>(
-                      <div key={m} style={{display:'flex',gap:'10px',alignItems:'center'}}>
-                        <span style={{color:'var(--t2)',width:'32px',fontSize:'10px'}}>{m}</span>
-                        <span style={{letterSpacing:'-1px'}}>{b}</span>
-                        <span style={{color:'var(--t2)',fontSize:'10px',marginLeft:'4px'}}>{n}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {totalIssues === 0 ? <div className="empty">데이터 없음</div> : (
+                    <div className="barchart">
+                      {barData.filter(b=>b.val>0).map(b=>(
+                        <div key={b.label} className="brow"><div className="blbl">{b.label}</div><div className="btrack"><div className="bfill" style={{background:b.color,width:`${Math.max(b.pct,2)}%`}} /></div><div className="bval">{b.val}</div></div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="panel">
-                <div className="panel-head"><span className="panel-title">지역별 분포</span></div>
+                <div className="panel-head"><span className="panel-title">분야별 분포</span></div>
                 <div className="panel-body">
-                  <div className="barchart">
-                    {[{l:'서울',v:78,p:100},{l:'경기',v:52,p:67},{l:'부산',v:28,p:36},{l:'인천',v:21,p:27},{l:'기타',v:69,p:89}].map(b=>(
-                      <div key={b.l} className="brow"><div className="blbl">{b.l}</div><div className="btrack"><div className="bfill" style={{background:'var(--teal)',width:`${b.p}%`}} /></div><div className="bval">{b.v}</div></div>
-                    ))}
-                  </div>
+                  {topFields.length === 0 ? <div className="empty">데이터 없음</div> : (
+                    <div className="barchart">
+                      {topFields.map(([label, val]) => (
+                        <div key={label} className="brow"><div className="blbl">{label}</div><div className="btrack"><div className="bfill" style={{background:'var(--teal)',width:`${Math.round(val/maxField*100)}%`}} /></div><div className="bval">{val}</div></div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-            <div className="g2">
-              <div className="panel">
-                <div className="panel-head"><span className="panel-title">법집행 유형별</span></div>
-                <div className="panel-body">
-                  <div className="barchart">
-                    {[{l:'형평성',v:65,p:100},{l:'과잉단속',v:48,p:74},{l:'선별집행',v:42,p:65},{l:'절차위반',v:35,p:54},{l:'권한남용',v:22,p:34}].map(b=>(
-                      <div key={b.l} className="brow"><div className="blbl">{b.l}</div><div className="btrack"><div className="bfill" style={{background:'var(--amber)',width:`${b.p}%`}} /></div><div className="bval">{b.v}</div></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="panel">
-                <div className="panel-head"><span className="panel-title">관련 기관별</span></div>
-                <div className="panel-body">
-                  <div className="barchart">
-                    {[{l:'경찰',v:88,p:100},{l:'지자체',v:62,p:70},{l:'국세청',v:40,p:45},{l:'검찰',v:28,p:32},{l:'기타',v:30,p:34}].map(b=>(
-                      <div key={b.l} className="brow"><div className="blbl">{b.l}</div><div className="btrack"><div className="bfill" style={{background:'var(--blue)',width:`${b.p}%`}} /></div><div className="bval">{b.v}</div></div>
-                    ))}
-                  </div>
-                </div>
+            <div className="panel">
+              <div className="panel-head"><span className="panel-title">지역별 분포</span></div>
+              <div className="panel-body">
+                {(() => {
+                  const regionCounts = allIssues.reduce((acc, i) => { acc[i.region] = (acc[i.region]||0)+1; return acc }, {} as Record<string,number>)
+                  const maxR = Math.max(...Object.values(regionCounts), 1)
+                  const topR = Object.entries(regionCounts).sort((a,b)=>b[1]-a[1]).slice(0,6)
+                  return topR.length === 0 ? <div className="empty">데이터 없음</div> : (
+                    <div className="barchart">
+                      {topR.map(([label,val]) => (
+                        <div key={label} className="brow"><div className="blbl">{label}</div><div className="btrack"><div className="bfill" style={{background:'var(--blue)',width:`${Math.round(val/maxR*100)}%`}} /></div><div className="bval">{val}</div></div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
@@ -805,8 +898,15 @@ export default function AdminPage() {
               <div className="panel">
                 <div className="panel-head"><span className="panel-title">시스템 정보</span></div>
                 <div className="panel-body">
-                  {[['플랫폼 버전','v1.0.0-beta','var(--teal)'],['Next.js','16.x','var(--t0)'],['Supabase','2.99.0','var(--t0)'],['DB 상태','● 정상','var(--green)'],['Storage','● 정상 (128MB / 10GB)','var(--green)'],['마지막 백업','2025-02-20 03:00','var(--t0)']].map(([l,v,c])=>(
-                    <div key={l as string} className="info-row"><span>{l}</span><span style={{color:c as string}}>{v}</span></div>
+                  {[
+                    ['플랫폼 버전','v1.0.0-beta','var(--teal)'],
+                    ['Next.js','16.x','var(--t0)'],
+                    ['Supabase','2.99.0','var(--t0)'],
+                    ['DB 상태','● 연결됨','var(--green)'],
+                    ['이슈 총계', String(totalIssues), 'var(--teal)'],
+                    ['마지막 체크',new Date().toLocaleDateString('ko-KR'),'var(--t0)'],
+                  ].map(([l,v,c])=>(
+                    <div key={l} className="info-row"><span>{l}</span><span style={{color:c}}>{v}</span></div>
                   ))}
                   <div className="info-row"><span>업타임</span><span>{uptime}</span></div>
                   <div style={{display:'flex',gap:'8px',marginTop:'16px'}}>
@@ -828,21 +928,37 @@ export default function AdminPage() {
             <div className="modal-head"><span className="modal-ttl">이슈 상세 검토</span><button className="modal-x" onClick={()=>setDetailIssue(null)}>✕</button></div>
             <div className="modal-body">
               <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}}>
-                <span className="badge b-접수됨">접수됨</span>
-                <span className="tag">{detailIssue.type}</span>
-                <span className="tag">{detailIssue.field}</span>
+                <span className={`badge b-${detailIssue.status}`}>{detailIssue.status}</span>
+                <span className="tag">{detailIssue.enforcement_type}</span>
+                <span className="tag">{detailIssue.field_category}</span>
                 <span className="tag">{detailIssue.region}</span>
-                <span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{detailIssue.date}</span>
+                {detailIssue.occurred_at && <span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{formatDate(detailIssue.occurred_at)}</span>}
               </div>
               <div style={{fontSize:'16px',fontWeight:700,color:'var(--t0)',marginBottom:'20px',lineHeight:1.4}}>{detailIssue.title}</div>
-              <div className="ds"><div className="ds-lbl">사건 개요</div><div className="ds-txt">{detailIssue.overview}</div></div>
-              <div className="ds"><div className="ds-lbl">문제가 된 법집행</div><div className="ds-txt">{detailIssue.problem}</div></div>
-              <div className="ds"><div className="ds-lbl">상식적 문제점</div><div className="ds-txt">{detailIssue.sense}</div></div>
+              {detailIssue.overview && <div className="ds"><div className="ds-lbl">사건 개요</div><div className="ds-txt">{detailIssue.overview}</div></div>}
+              {detailIssue.problem && <div className="ds"><div className="ds-lbl">문제가 된 법집행</div><div className="ds-txt">{detailIssue.problem}</div></div>}
+              {detailIssue.sense && <div className="ds"><div className="ds-lbl">상식적 문제점</div><div className="ds-txt">{detailIssue.sense}</div></div>}
+              {detailIssue.requests && detailIssue.requests.length > 0 && (
+                <div className="ds">
+                  <div className="ds-lbl">요청 사항</div>
+                  <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                    {detailIssue.requests.map(r => <span key={r} className="tag">{r}</span>)}
+                  </div>
+                </div>
+              )}
+              <div className="ds">
+                <div className="ds-lbl">등록일</div>
+                <div className="ds-txt">{formatDate(detailIssue.created_at)}</div>
+              </div>
             </div>
             <div className="modal-foot">
-              <button className="btn btn-r sm" onClick={()=>{const p=pendingList.find(x=>x.id===detailIssue.id);setDetailIssue(null);if(p){setRejectIssue({id:p.id,title:p.title});setRejectReason('')}}}>✕ 거절</button>
-              <button className="btn btn-g sm" onClick={()=>{setDetailIssue(null);setStatusIssue({id:detailIssue.id,title:detailIssue.title,status:'접수됨'});setSelSt('')}}>상태 변경</button>
-              <button className="btn btn-t sm" onClick={()=>{approveIssue(detailIssue.id);setDetailIssue(null)}}>✓ 승인 공개</button>
+              {!detailIssue.is_published && (
+                <>
+                  <button className="btn btn-r sm" onClick={()=>{setDetailIssue(null);setRejectIssue({id:detailIssue.id,title:detailIssue.title});setRejectReason('')}}>✕ 거절</button>
+                  <button className="btn btn-t sm" onClick={()=>{approveIssue(detailIssue.id);setDetailIssue(null)}}>✓ 승인 공개</button>
+                </>
+              )}
+              <button className="btn btn-g sm" onClick={()=>{setDetailIssue(null);setStatusIssue({id:detailIssue.id,title:detailIssue.title,status:detailIssue.status});setSelSt('')}}>상태 변경</button>
             </div>
           </div>
         )}
@@ -854,7 +970,7 @@ export default function AdminPage() {
           <div className="modal">
             <div className="modal-head"><span className="modal-ttl">이슈 상태 변경</span><button className="modal-x" onClick={()=>setStatusIssue(null)}>✕</button></div>
             <div className="modal-body">
-              <div style={{background:'var(--bg2)',border:'1px solid var(--bdr2)',padding:'10px 14px',fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--t1)',marginBottom:'18px'}}>#{statusIssue.id} — {statusIssue.title}</div>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--bdr2)',padding:'10px 14px',fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--t1)',marginBottom:'18px'}}>{statusIssue.title}</div>
               <div className="fg">
                 <label className="flbl">새 상태 선택 *</label>
                 <div className="sopt-grid">
