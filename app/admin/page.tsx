@@ -312,6 +312,32 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [fieldFilter, setFieldFilter] = useState('')
 
+  // DB 헬스 체크
+  type DbHealth = {
+    ok: boolean
+    latency: number
+    projectRef: string
+    maskedUrl: string
+    counts: Record<string, number | string>
+    checkedAt: string
+    envVars: Record<string, boolean>
+  }
+  const [dbHealth, setDbHealth] = useState<DbHealth | null>(null)
+  const [healthLoading, setHealthLoading] = useState(false)
+
+  const checkHealth = async () => {
+    setHealthLoading(true)
+    try {
+      const res = await fetch('/api/admin/health')
+      const data = await res.json()
+      setDbHealth(data)
+    } catch {
+      setDbHealth(null)
+    } finally {
+      setHealthLoading(false)
+    }
+  }
+
   const startTime = typeof window !== 'undefined' ? Date.now() : 0
 
   // Data loading
@@ -901,7 +927,7 @@ export default function AdminPage() {
                   {[
                     ['플랫폼 버전','v1.0.0-beta','var(--teal)'],
                     ['Next.js','16.x','var(--t0)'],
-                    ['Supabase','2.99.0','var(--t0)'],
+                    ['Supabase SDK','2.99.0','var(--t0)'],
                     ['DB 상태','● 연결됨','var(--green)'],
                     ['이슈 총계', String(totalIssues), 'var(--teal)'],
                     ['마지막 체크',new Date().toLocaleDateString('ko-KR'),'var(--t0)'],
@@ -914,6 +940,100 @@ export default function AdminPage() {
                     <button className="btn btn-r sm" style={{flex:1}} onClick={() => toast('캐시 초기화 완료')}>🗑 캐시 초기화</button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 데이터 연동 현황 — 전체 너비 */}
+            <div className="panel" style={{marginTop:'16px'}}>
+              <div className="panel-head">
+                <span className="panel-title">데이터 연동 현황</span>
+                <button
+                  className={`btn btn-t sm`}
+                  onClick={() => { checkHealth(); toast('연결 상태를 확인합니다...') }}
+                  disabled={healthLoading}
+                >
+                  {healthLoading ? '⟳ 확인 중...' : '⟳ 연결 테스트'}
+                </button>
+              </div>
+              <div className="panel-body">
+                {!dbHealth && !healthLoading && (
+                  <div className="empty" style={{padding:'24px'}}>
+                    <div className="empty-icon">🔌</div>
+                    연결 테스트 버튼을 눌러 데이터 연동 상태를 확인하세요.
+                  </div>
+                )}
+                {healthLoading && (
+                  <div className="loading">⟳ Supabase 연결 확인 중...</div>
+                )}
+                {dbHealth && !healthLoading && (
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'16px'}}>
+
+                    {/* Supabase 연결 */}
+                    <div>
+                      <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'10px',paddingBottom:'6px',borderBottom:'1px solid var(--bdr2)'}}>Supabase 연결</div>
+                      <div className="info-row"><span>연결 상태</span><span style={{color: dbHealth.ok ? 'var(--green)' : 'var(--red)'}}>{dbHealth.ok ? '● 정상' : '✕ 오류'}</span></div>
+                      <div className="info-row"><span>응답 지연</span><span style={{color: dbHealth.latency < 300 ? 'var(--green)' : dbHealth.latency < 800 ? 'var(--amber)' : 'var(--red)'}}>{dbHealth.latency}ms</span></div>
+                      <div className="info-row"><span>프로젝트 REF</span><span>{dbHealth.projectRef}</span></div>
+                      <div className="info-row" style={{wordBreak:'break-all'}}><span>URL</span><span style={{fontSize:'9px'}}>{dbHealth.maskedUrl}</span></div>
+                      <div className="info-row"><span>마지막 확인</span><span style={{fontSize:'9px'}}>{new Date(dbHealth.checkedAt).toLocaleTimeString('ko-KR')}</span></div>
+                    </div>
+
+                    {/* DB 테이블 레코드 수 */}
+                    <div>
+                      <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'10px',paddingBottom:'6px',borderBottom:'1px solid var(--bdr2)'}}>DB 테이블 현황</div>
+                      {[
+                        ['issues','이슈','var(--teal)'],
+                        ['comments','댓글','var(--blue)'],
+                        ['reports','신고','var(--red)'],
+                        ['attachments','첨부파일','var(--amber)'],
+                        ['status_history','상태 이력','var(--t1)'],
+                        ['profiles','사용자 프로필','var(--t1)'],
+                      ].map(([key,label,color]) => (
+                        <div key={key} className="info-row">
+                          <span>{label}</span>
+                          <span style={{color: dbHealth.counts[key] === 'err' ? 'var(--red)' : color as string, fontFamily:'var(--f-mono)'}}>
+                            {dbHealth.counts[key] === 'err' ? '✕ 오류' : `${dbHealth.counts[key]}건`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 환경변수 & API */}
+                    <div>
+                      <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'10px',paddingBottom:'6px',borderBottom:'1px solid var(--bdr2)'}}>환경변수</div>
+                      {[
+                        ['NEXT_PUBLIC_SUPABASE_URL','공개 DB URL'],
+                        ['NEXT_PUBLIC_SUPABASE_ANON_KEY','익명 키'],
+                        ['SUPABASE_SERVICE_ROLE_KEY','서비스 롤 키'],
+                      ].map(([key, label]) => (
+                        <div key={key} className="info-row">
+                          <span>{label}</span>
+                          <span style={{color: dbHealth.envVars[key] ? 'var(--green)' : 'var(--red)', fontFamily:'var(--f-mono)'}}>
+                            {dbHealth.envVars[key] ? '● 설정됨' : '✕ 누락'}
+                          </span>
+                        </div>
+                      ))}
+
+                      <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginTop:'16px',marginBottom:'10px',paddingBottom:'6px',borderBottom:'1px solid var(--bdr2)'}}>API 엔드포인트</div>
+                      {[
+                        ['POST','/api/issues','이슈 제출'],
+                        ['GET','/api/admin/issues','이슈 조회'],
+                        ['PATCH','/api/admin/issues/[id]','이슈 액션'],
+                        ['GET','/api/admin/stats','통계'],
+                        ['GET','/api/admin/health','헬스 체크'],
+                      ].map(([method, path, desc]) => (
+                        <div key={path} className="info-row">
+                          <span style={{display:'flex',gap:'5px',alignItems:'center'}}>
+                            <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color: method==='POST'?'var(--amber)':method==='PATCH'?'var(--blue)':'var(--teal)',background: method==='POST'?'var(--amberD)':method==='PATCH'?'var(--blueD)':'var(--tealD)',padding:'1px 5px',border:'1px solid currentColor',borderRadius:'2px'}}>{method}</span>
+                            <span style={{fontSize:'10px'}}>{desc}</span>
+                          </span>
+                          <span style={{color:'var(--green)',fontFamily:'var(--f-mono)',fontSize:'10px'}}>● 활성</span>
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+                )}
               </div>
             </div>
           </div>
