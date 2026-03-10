@@ -1,7 +1,60 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import MyPageDrawer from '@/components/MyPageDrawer'
+import FileViewerModal from '@/components/FileViewerModal'
+import IssueChatPanel from '@/components/IssueChatPanel'
+
+interface IssueAttachment {
+  id?: string
+  original_name: string
+  file_url?: string
+  file_type?: string
+  mime_type?: string
+}
+
+type IssueAttachmentInput = string | IssueAttachment
+
+const DEMO_ATTACHMENT_LIBRARY: Record<string, { url: string; mimeType: string }> = {
+  '처분서_A구.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
+  '과태료고지서_B구.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
+  '세무조사결과통지서.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
+  '대기업_처분사례_비교.xlsx': { url: '/evidence/sample-comparison.csv', mimeType: 'text/csv' },
+  '건축물대장.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
+  '시정권고서.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
+  '단속현황_통계.xlsx': { url: '/evidence/sample-comparison.csv', mimeType: 'text/csv' },
+}
+
+function inferMimeTypeFromName(fileName: string): string {
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.pdf')) return 'application/pdf'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.svg')) return 'image/svg+xml'
+  if (lower.endsWith('.csv')) return 'text/csv'
+  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  return 'application/octet-stream'
+}
+
+function normalizeAttachment(input: IssueAttachmentInput): IssueAttachment {
+  if (typeof input !== 'string') {
+    return {
+      ...input,
+      mime_type: input.mime_type || inferMimeTypeFromName(input.original_name),
+    }
+  }
+
+  const demo = DEMO_ATTACHMENT_LIBRARY[input]
+  return {
+    original_name: input,
+    file_url: demo?.url,
+    mime_type: demo?.mimeType || inferMimeTypeFromName(input),
+    file_type: '증빙자료',
+  }
+}
 
 // 모의 데이터 (한국어 사례)
 const ISSUES = [
@@ -84,6 +137,9 @@ export default function HomePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [deviceToken, setDeviceToken] = useState("")
   const [myPageOpen, setMyPageOpen] = useState(false)
+  const [activeAttachment, setActiveAttachment] = useState<IssueAttachment | null>(null)
+  const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false)
+  const [isAttachmentLoading, setIsAttachmentLoading] = useState(false)
 
   // 제보 폼 상태
   const [formStep, setFormStep] = useState(1)
@@ -152,6 +208,40 @@ export default function HomePage() {
   const closeModal = () => {
     setActiveModalId(null)
     document.body.style.overflow = "auto"
+    setIsAttachmentViewerOpen(false)
+    setActiveAttachment(null)
+  }
+
+  const openAttachmentViewer = async (input: IssueAttachmentInput) => {
+    const attachment = normalizeAttachment(input)
+    let resolvedUrl = attachment.file_url
+
+    if (attachment.id) {
+      setIsAttachmentLoading(true)
+      try {
+        const res = await fetch(`/api/attachments/${attachment.id}/signed-url`)
+        const json = await res.json()
+        if (res.ok && json.url) {
+          resolvedUrl = json.url as string
+        }
+      } catch {
+        // ignore and fallback to existing url
+      } finally {
+        setIsAttachmentLoading(false)
+      }
+    }
+
+    if (!resolvedUrl) {
+      showToast('첨부 자료 URL을 찾을 수 없어 미리보기를 열 수 없습니다.')
+      return
+    }
+
+    setActiveAttachment({
+      ...attachment,
+      file_url: resolvedUrl,
+      mime_type: attachment.mime_type || inferMimeTypeFromName(attachment.original_name),
+    })
+    setIsAttachmentViewerOpen(true)
   }
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -228,7 +318,7 @@ export default function HomePage() {
 
           {/* 데스크탑 네비게이션 */}
           <nav className="hidden md:flex items-center gap-2">
-            {["이슈 목록", "인기 랭킹", "제보하기", "운영 원칙"].map((label, i) => {
+            {["이슈 목록", "공감 랭킹", "제보하기", "운영 원칙"].map((label, i) => {
               const ids = ["issues", "ranking", "register", "principles"]
               return (
                 <button key={label} onClick={() => scrollToSection(ids[i])} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-red-500 hover:bg-white rounded-xl transition-all duration-300">
@@ -254,7 +344,7 @@ export default function HomePage() {
         {/* 모바일 메뉴 오버레이 */}
         {isMobileMenuOpen && (
           <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-100 shadow-xl p-6 flex flex-col gap-4 animate-slide-up">
-            {["이슈 목록", "인기 랭킹", "제보하기", "운영 원칙"].map((label, i) => (
+            {["이슈 목록", "공감 랭킹", "제보하기", "운영 원칙"].map((label, i) => (
               <button key={label} onClick={() => scrollToSection(["issues", "ranking", "register", "principles"][i])} className="text-left py-3 text-lg font-bold text-gray-800 border-b border-gray-50">
                 {label}
               </button>
@@ -267,58 +357,57 @@ export default function HomePage() {
       </header>
 
       {/* 🚀 히어로 섹션 (역동적인 타이포그래피) */}
-      <section id="hero" className="relative pt-40 pb-20 px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
+      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-10 fade-in">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold tracking-widest uppercase">
-              <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> Citizens' Justice Platform
+          <div className="space-y-8 fade-in text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase mx-auto lg:mx-0">
+              <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> 시민 공론 플랫폼
             </div>
-            <h1 className="text-6xl md:text-8xl font-black leading-[1.1] tracking-tighter text-gray-900">
-              상식을<br />기록하면<br /><span className="text-red-500 italic">세상이 바뀐다</span>
+            <h1 className="text-4xl sm:text-5xl md:text-8xl font-black leading-[1.1] tracking-tighter text-gray-900">
+              상식을<br />기록하면<br /><span className="text-red-500">세상이 바뀐다</span>
             </h1>
-            <p className="text-xl text-gray-500 leading-relaxed max-w-lg font-medium">
+            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-lg font-medium mx-auto lg:mx-0">
               불합리한 법집행 사례를 증거와 구조로 기록하고,<br className="hidden sm:block" />
-              시민의 공감으로 공론화합니다. 데이터로 상식을 시각화합니다.
+              시민의 지지와 공감으로 공론화합니다. 데이터로 상식을 시각화합니다.
             </p>
             
-            <div className="flex flex-wrap gap-10 py-4 border-y border-gray-100">
+            <div className="flex flex-wrap justify-center lg:justify-start gap-6 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
               {[["등록 이슈", STATS.totalIssues], ["누적 공감", "18.4k"], ["해결 사례", STATS.resolvedCases]].map(([label, val]) => (
                 <div key={label as string}>
-                  <div className="text-3xl font-black text-gray-900 tracking-tight">{val}</div>
-                  <div className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">{label}</div>
+                  <div className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
+                  <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{label}</div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button onClick={() => scrollToSection("register")} className="px-8 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-lg active:scale-95">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <button onClick={() => scrollToSection("register")} className="px-6 py-3.5 sm:px-8 sm:py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95">
                 지금 이슈 제보하기 <i className="ri-arrow-right-line ml-2" />
               </button>
-              <button onClick={() => scrollToSection("issues")} className="px-8 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-lg active:scale-95">
+              <button onClick={() => scrollToSection("issues")} className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95">
                 실시간 이슈 보기
               </button>
             </div>
           </div>
 
-          <div className="relative fade-in" style={{ transitionDelay: '300ms' }}>
-            <div className="absolute -right-20 -top-20 text-[240px] font-black text-gray-100/50 select-none pointer-events-none tracking-tighter">PROTEST</div>
-            <div className="relative space-y-4 bg-white/40 backdrop-blur-xl p-8 rounded-[2rem] border border-white shadow-2xl">
+          <div className="relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
+            <div className="relative space-y-3 sm:space-y-4 bg-white/40 backdrop-blur-xl p-4 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
               {ISSUES.slice(0, 4).map((issue, i) => (
-                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-5 p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
-                  <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl font-black text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
+                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-3 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
+                  <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-xs sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
+                    <div className="text-xs sm:text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
                       <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                      <span className="text-[10px] font-bold text-gray-400">{issue.region}</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-gray-400">{issue.region}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase">Votes</div>
+                    <div className="text-xs sm:text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
+                    <div className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase">지지수</div>
                   </div>
                 </div>
               ))}
@@ -328,35 +417,35 @@ export default function HomePage() {
       </section>
 
       {/* 📄 최신 이슈 섹션 (세련된 카드 레이아웃) */}
-      <section id="issues" className="py-32 px-6 bg-white relative overflow-hidden">
+      <section id="issues" className="py-24 md:py-32 px-6 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
-            <div className="fade-in space-y-4">
-              <h2 className="text-5xl font-black text-gray-900 tracking-tight">최신 불합리 사례</h2>
-              <p className="text-lg text-gray-500 font-medium">시민들이 직접 제보한 상식 밖의 법집행 사례들입니다.</p>
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 md:mb-16 gap-6">
+            <div className="fade-in space-y-3">
+              <h2 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight">최신 불합리 사례</h2>
+              <p className="text-base md:text-lg text-gray-500 font-medium">시민들이 직접 제보한 상식 밖의 사례들입니다.</p>
             </div>
             <div className="flex flex-wrap gap-2 fade-in">
-              {["전체", "과잉단속", "선별집행", "형평성", "절차위반"].map(filter => (
-                <button key={filter} onClick={() => setIssueFilter(filter)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${issueFilter === filter ? "bg-gray-900 text-white shadow-xl scale-105" : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-transparent"}`}>
+              {["전체", "과잉단속", "선별집행", "형평성", "절차위반", "권한남용"].map(filter => (
+                <button key={filter} onClick={() => setIssueFilter(filter)} className={`px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all duration-300 ${issueFilter === filter ? "bg-gray-900 text-white shadow-xl scale-105" : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-transparent"}`}>
                   {filter}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {filteredIssues.map((issue, idx) => (
-              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in bg-white rounded-[2rem] p-8 border border-gray-50 smooth-shadow hover:smooth-shadow-xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col h-full" style={{ transitionDelay: `${idx * 100}ms` }}>
-                <div className="flex items-center justify-between mb-8">
+              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in bg-white rounded-[2rem] p-6 md:p-8 border border-gray-50 smooth-shadow hover:smooth-shadow-xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col h-full" style={{ transitionDelay: `${idx * 100}ms` }}>
+                <div className="flex items-center justify-between mb-6 md:mb-8">
                   <span className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider ${getStatusStyle(issue.status)}`}>
                     {issue.status}
                   </span>
-                  <span className="text-[11px] font-bold text-gray-300">{issue.date}</span>
+                  <span className="text-[10px] md:text-[11px] font-bold text-gray-300">{issue.date}</span>
                 </div>
-                <h3 className="text-xl font-extrabold text-gray-900 mb-4 line-clamp-2 leading-snug group-hover:text-red-500 transition-colors duration-300 flex-grow">
+                <h3 className="text-lg md:text-xl font-extrabold text-gray-900 mb-4 line-clamp-2 leading-snug group-hover:text-red-500 transition-colors duration-300 flex-grow">
                   {issue.title}
                 </h3>
-                <p className="text-sm text-gray-500 font-medium mb-8 line-clamp-2 leading-relaxed italic">
+                <p className="text-sm text-gray-500 font-medium mb-6 md:mb-8 line-clamp-2 leading-relaxed italic">
                   "{issue.summary}"
                 </p>
                 <div className="flex items-center justify-between pt-6 border-t border-gray-50 mt-auto">
@@ -364,7 +453,7 @@ export default function HomePage() {
                     <i className="ri-heart-fill animate-pulse" />
                     <span>{issue.support.toLocaleString()}</span>
                   </div>
-                  <div className="text-xs text-gray-400 font-bold flex items-center gap-1.5">
+                  <div className="text-[10px] md:text-xs text-gray-400 font-bold flex items-center gap-1.5">
                     <i className="ri-map-pin-2-fill" /> {issue.region}
                   </div>
                 </div>
@@ -375,18 +464,18 @@ export default function HomePage() {
       </section>
 
       {/* 🏆 랭킹 섹션 (다크 테마 + 그라데이션) */}
-      <section id="ranking" className="py-32 px-6 bg-gray-900 relative overflow-hidden">
+      <section id="ranking" className="py-24 md:py-32 px-6 bg-gray-900 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,#1f2937_0%,#111827_100%)]" />
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 md:mb-16 gap-8">
             <div className="fade-in space-y-4">
-              <div className="text-red-500 font-black tracking-[0.2em] uppercase text-xs">Public Consensus</div>
-              <h2 className="text-5xl md:text-6xl font-black text-white leading-tight tracking-tighter">가장 많은 공감을<br />받은 상식</h2>
+              <div className="text-red-500 font-black tracking-[0.2em] uppercase text-[10px]">Public Consensus</div>
+              <h2 className="text-3xl md:text-6xl font-black text-white leading-tight tracking-tighter">가장 많은 공감을<br className="hidden md:block" /> 받은 상식</h2>
             </div>
-            <div className="flex p-1.5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 fade-in">
+            <div className="flex p-1.5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 fade-in overflow-x-auto no-scrollbar">
               {["주간", "월간", "누적"].map((p) => (
-                <button key={p} onClick={() => setRankingPeriod(p)} className={`px-6 py-3 rounded-xl text-sm font-bold transition-all duration-500 ${rankingPeriod === p ? "bg-white text-gray-900 shadow-2xl" : "text-gray-400 hover:text-white"}`}>
-                  {p}인기
+                <button key={p} onClick={() => setRankingPeriod(p)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all duration-500 whitespace-nowrap ${rankingPeriod === p ? "bg-white text-gray-900 shadow-2xl" : "text-gray-400 hover:text-white"}`}>
+                  {p}공감
                 </button>
               ))}
             </div>
@@ -394,21 +483,21 @@ export default function HomePage() {
 
           <div className="grid gap-4">
             {sortedRanking.map((issue, i) => (
-              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-col md:flex-row items-center gap-8 p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div className={`flex-shrink-0 w-20 h-20 flex items-center justify-center rounded-[1.5rem] text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
+              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-col md:flex-row items-center gap-6 md:gap-8 p-6 md:p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-[1.2rem] md:rounded-[1.5rem] text-xl md:text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
                   0{i + 1}
                 </div>
                 <div className="flex-1 min-w-0 text-center md:text-left">
-                  <div className="flex flex-wrap justify-center md:justify-start gap-3 mb-4">
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2 md:gap-3 mb-3 md:mb-4">
                     {issue.tags.map(tag => (
-                      <span key={tag} className="px-3 py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest">{tag}</span>
+                      <span key={tag} className="px-2 py-0.5 md:px-3 md:py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
                     ))}
                   </div>
-                  <h3 className="text-2xl font-black text-white line-clamp-1 group-hover:text-red-400 transition-colors duration-300 tracking-tight">{issue.title}</h3>
+                  <h3 className="text-xl md:text-2xl font-black text-white line-clamp-1 group-hover:text-red-400 transition-colors duration-300 tracking-tight">{issue.title}</h3>
                 </div>
                 <div className="flex-shrink-0 text-center md:text-right">
-                  <div className="text-4xl font-black text-red-500 tracking-tighter group-hover:scale-110 transition-transform duration-500">{issue.support.toLocaleString()}</div>
-                  <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Supporters</div>
+                  <div className="text-3xl md:text-4xl font-black text-red-500 tracking-tighter group-hover:scale-110 transition-transform duration-500">{issue.support.toLocaleString()}</div>
+                  <div className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Supporters</div>
                 </div>
               </div>
             ))}
@@ -417,30 +506,30 @@ export default function HomePage() {
       </section>
 
       {/* ✍️ 제보 섹션 (크고 명확한 프리미엄 폼) */}
-      <section id="register" className="py-32 px-6 bg-[#F8F7F4]">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-5 gap-20">
-          <div className="lg:col-span-2 space-y-12 fade-in">
-            <div className="space-y-6">
-              <h2 className="text-6xl font-black text-gray-900 tracking-tighter leading-tight">당신의 경험을<br />기록하세요</h2>
-              <p className="text-xl text-gray-500 font-medium leading-relaxed">
+      <section id="register" className="py-24 md:py-32 px-6 bg-[#F8F7F4]">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-5 gap-12 md:gap-20">
+          <div className="lg:col-span-2 space-y-8 md:space-y-12 fade-in">
+            <div className="space-y-4 md:space-y-6">
+              <h2 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter leading-tight">당신의 경험을<br />기록하세요</h2>
+              <p className="text-lg md:text-xl text-gray-500 font-medium leading-relaxed">
                 사실 중심으로 작성된 이슈는 전문 검토를 거쳐 공개됩니다. 
                 증거가 뒷받침될 때 우리의 목소리는 힘을 얻습니다.
               </p>
             </div>
             
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               {[
                 { n: "01", t: "데이터 구조화", d: "사건 개요와 문제점을 논리적으로 구분하여 기술합니다." },
                 { n: "02", t: "증빙 아카이브", d: "공문, 처분서 등 사실을 입증할 자료를 안전하게 보관합니다." },
                 { n: "03", t: "공론화 리포트", d: "전문가 자문을 거쳐 공공기관 및 언론에 전달됩니다." }
               ].map((item) => (
-                <div key={item.n} className="flex gap-8 group">
-                  <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center bg-white border border-gray-100 rounded-2xl text-2xl font-black text-red-500 smooth-shadow group-hover:bg-red-500 group-hover:text-white transition-all duration-500">
+                <div key={item.n} className="flex gap-6 md:gap-8 group">
+                  <div className="flex-shrink-0 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-white border border-gray-100 rounded-2xl text-xl md:text-2xl font-black text-red-500 smooth-shadow group-hover:bg-red-500 group-hover:text-white transition-all duration-500">
                     {item.n}
                   </div>
                   <div>
-                    <h4 className="text-xl font-extrabold text-gray-900 mb-2">{item.t}</h4>
-                    <p className="text-base text-gray-400 font-medium leading-relaxed">{item.d}</p>
+                    <h4 className="text-lg md:text-xl font-extrabold text-gray-900 mb-1 md:mb-2">{item.t}</h4>
+                    <p className="text-sm md:text-base text-gray-400 font-medium leading-relaxed">{item.d}</p>
                   </div>
                 </div>
               ))}
@@ -448,85 +537,85 @@ export default function HomePage() {
           </div>
 
           <div className="lg:col-span-3 fade-in" style={{ transitionDelay: '200ms' }}>
-            <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-gray-100 smooth-shadow-xl relative overflow-hidden">
+            <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 border border-gray-100 smooth-shadow-xl relative overflow-hidden">
               {/* 폼 단계 표시기 (확대됨) */}
-              <div className="flex items-center justify-between mb-16 relative z-10">
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 2</span>
-                  <h3 className="text-3xl font-black text-gray-900">{formStep === 1 ? "기본 정보 입력" : "상세 내용 작성"}</h3>
+              <div className="flex items-center justify-between mb-10 md:mb-16 relative z-10">
+                <div className="flex flex-col gap-1 md:gap-2">
+                  <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 2</span>
+                  <h3 className="text-xl md:text-3xl font-black text-gray-900">{formStep === 1 ? "기본 정보 입력" : "상세 내용 작성"}</h3>
                 </div>
-                <div className="flex gap-3 bg-gray-50 p-2 rounded-full border border-gray-100">
-                  <div className={`w-12 h-3 rounded-full transition-all duration-700 ${formStep >= 1 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
-                  <div className={`w-12 h-3 rounded-full transition-all duration-700 ${formStep >= 2 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
+                <div className="flex gap-2 md:gap-3 bg-gray-50 p-2 rounded-full border border-gray-100">
+                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 1 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
+                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 2 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
                 </div>
               </div>
               
-              <form onSubmit={handleFormSubmit} className="space-y-10 relative z-10">
+              <form onSubmit={handleFormSubmit} className="space-y-8 md:space-y-10 relative z-10">
                 {formStep === 1 ? (
-                  <div className="space-y-10 step-enter">
+                  <div className="space-y-8 md:space-y-10 step-enter">
                     <div className="group">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4 group-focus-within:text-red-500 transition-colors">이슈 제목 <span className="text-red-500">*</span></label>
+                      <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4 group-focus-within:text-red-500 transition-colors">이슈 제목 <span className="text-red-500">*</span></label>
                       <input 
                         type="text" 
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
                         placeholder="사건을 한 눈에 알 수 있는 제목을 입력하세요." 
-                        className="w-full bg-gray-50/50 px-8 py-6 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-red-500 focus:bg-white transition-all text-xl font-bold placeholder:text-gray-300" 
+                        className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold placeholder:text-gray-300" 
                         required 
                       />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                       <div className="group">
-                        <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4">법집행 유형</label>
+                        <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4">법집행 유형</label>
                         <div className="relative">
                           <select 
                             value={formData.type}
                             onChange={(e) => setFormData({...formData, type: e.target.value})}
-                            className="w-full bg-gray-50/50 px-8 py-6 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-red-500 focus:bg-white transition-all text-xl font-bold appearance-none cursor-pointer" 
+                            className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold appearance-none cursor-pointer" 
                             required
                           >
                             <option value="">선택하세요</option>
                             {["과잉단속", "선별집행", "형평성", "절차위반", "권한남용", "행정편의"].map(opt => <option key={opt}>{opt}</option>)}
                           </select>
-                          <i className="ri-arrow-down-s-line absolute right-8 top-1/2 -translate-y-1/2 text-2xl text-gray-400 pointer-events-none" />
+                          <i className="ri-arrow-down-s-line absolute right-6 md:right-8 top-1/2 -translate-y-1/2 text-xl md:text-2xl text-gray-400 pointer-events-none" />
                         </div>
                       </div>
                       <div className="group">
-                        <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4">지역</label>
+                        <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4">지역</label>
                         <div className="relative">
                           <select 
                             value={formData.region}
                             onChange={(e) => setFormData({...formData, region: e.target.value})}
-                            className="w-full bg-gray-50/50 px-8 py-6 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-red-500 focus:bg-white transition-all text-xl font-bold appearance-none cursor-pointer" 
+                            className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold appearance-none cursor-pointer" 
                             required
                           >
                             <option value="">선택하세요</option>
                             {["서울", "부산", "대구", "인천", "광주", "대전", "울산", "경기", "기타"].map(opt => <option key={opt}>{opt}</option>)}
                           </select>
-                          <i className="ri-arrow-down-s-line absolute right-8 top-1/2 -translate-y-1/2 text-2xl text-gray-400 pointer-events-none" />
+                          <i className="ri-arrow-down-s-line absolute right-6 md:right-8 top-1/2 -translate-y-1/2 text-xl md:text-2xl text-gray-400 pointer-events-none" />
                         </div>
                       </div>
                     </div>
                     <button 
                       type="button" 
                       onClick={() => formData.title && formData.type && formData.region ? setFormStep(2) : showToast("필수 항목을 모두 입력해 주세요.")}
-                      className="w-full py-7 bg-gray-900 text-white font-black rounded-[2rem] hover:bg-red-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 active:scale-[0.98] text-2xl group"
+                      className="w-full py-5 md:py-7 bg-gray-900 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 active:scale-[0.98] text-lg md:text-2xl group"
                     >
                       상세 내용 작성하러 가기 
                       <i className="ri-arrow-right-up-line ml-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-10 step-enter">
+                  <div className="space-y-8 md:space-y-10 step-enter">
                     <div className="group">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4">요청 사항</label>
-                      <div className="flex flex-wrap gap-3">
+                      <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4">요청 사항</label>
+                      <div className="flex flex-wrap gap-2 md:gap-3">
                         {["재검토", "감사 요청", "제도 개선", "공론화"].map(req => (
                           <button 
                             key={req} 
                             type="button" 
                             onClick={() => toggleRequest(req)}
-                            className={`px-8 py-4 rounded-2xl text-sm font-black transition-all duration-300 ${selectedRequests.includes(req) ? "bg-red-500 text-white shadow-xl shadow-red-200" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
+                            className={`px-6 py-3 md:px-8 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black transition-all duration-300 ${selectedRequests.includes(req) ? "bg-red-500 text-white shadow-xl shadow-red-200" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
                           >
                             {req}
                           </button>
@@ -534,30 +623,30 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="group">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4 group-focus-within:text-red-500 transition-colors">사건 개요</label>
+                      <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4 group-focus-within:text-red-500 transition-colors">사건 개요</label>
                       <textarea 
                         value={formData.overview}
                         onChange={(e) => setFormData({...formData, overview: e.target.value})}
                         placeholder="언제, 어디서, 무슨 일이 있었는지 객관적 사실을 기술해 주세요." 
                         rows={5} 
-                        className="w-full bg-gray-50/50 px-8 py-6 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-red-500 focus:bg-white transition-all text-xl font-bold resize-none placeholder:text-gray-300" 
+                        className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold resize-none placeholder:text-gray-300" 
                         required 
                       />
                     </div>
                     <div className="group">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-4 group-focus-within:text-red-500 transition-colors">상식적으로 문제되는 지점</label>
+                      <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4 group-focus-within:text-red-500 transition-colors">상식적으로 문제되는 지점</label>
                       <textarea 
                         value={formData.problemSense}
                         onChange={(e) => setFormData({...formData, problemSense: e.target.value})}
                         placeholder="왜 이 집행이 부당하다고 생각하시나요?" 
                         rows={5} 
-                        className="w-full bg-gray-50/50 px-8 py-6 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-red-500 focus:bg-white transition-all text-xl font-bold resize-none placeholder:text-gray-300" 
+                        className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold resize-none placeholder:text-gray-300" 
                         required 
                       />
                     </div>
-                    <div className="flex gap-6">
-                      <button type="button" onClick={() => setFormStep(1)} className="flex-1 py-7 bg-gray-50 text-gray-400 font-black rounded-[2rem] hover:bg-gray-100 transition-all text-xl">이전 단계</button>
-                      <button type="submit" className="flex-[2] py-7 bg-red-500 text-white font-black rounded-[2rem] hover:bg-red-600 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-[0.98] text-2xl">기록하기</button>
+                    <div className="flex gap-4 md:gap-6">
+                      <button type="button" onClick={() => setFormStep(1)} className="flex-1 py-5 md:py-7 bg-gray-50 text-gray-400 font-black rounded-2xl md:rounded-[2rem] hover:bg-gray-100 transition-all text-base md:text-xl">이전 단계</button>
+                      <button type="submit" className="flex-[2] py-5 md:py-7 bg-red-500 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-600 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-[0.98] text-lg md:text-2xl">기록하기</button>
                     </div>
                   </div>
                 )}
@@ -568,20 +657,20 @@ export default function HomePage() {
       </section>
 
       {/* 💎 플랫폼 원칙 (아이콘 & 그리드) */}
-      <section id="principles" className="py-32 px-6 bg-white border-t border-gray-50">
-        <div className="max-w-7xl mx-auto space-y-20">
+      <section id="principles" className="py-24 md:py-32 px-6 bg-white border-t border-gray-50">
+        <div className="max-w-7xl mx-auto space-y-16 md:space-y-20">
           <div className="text-center space-y-4 fade-in">
-            <h2 className="text-5xl font-black text-gray-900 tracking-tighter">흔들리지 않는 플랫폼 원칙</h2>
-            <p className="text-lg text-gray-400 font-bold max-w-2xl mx-auto">신뢰가 있어야 공론화가 가능합니다. 우리는 가장 엄격한 기준으로 정보를 다룹니다.</p>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tighter">흔들리지 않는 플랫폼 원칙</h2>
+            <p className="text-base md:text-lg text-gray-400 font-bold max-w-2xl mx-auto">신뢰가 있어야 공론화가 가능합니다. 우리는 가장 엄격한 기준으로 정보를 다룹니다.</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {PRINCIPLES.map((principle, i) => (
-              <div key={principle.title} className="fade-in bg-[#F8F7F4]/50 border border-gray-100 rounded-[2.5rem] p-10 hover:bg-white hover:smooth-shadow-xl hover:-translate-y-2 transition-all duration-500 group" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div className="w-16 h-16 flex items-center justify-center bg-white rounded-2xl text-3xl text-gray-900 smooth-shadow group-hover:scale-110 group-hover:rotate-6 group-hover:text-red-500 transition-all duration-500 mb-8">
+              <div key={principle.title} className="fade-in bg-[#F8F7F4]/50 border border-gray-100 rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 hover:bg-white hover:smooth-shadow-xl hover:-translate-y-2 transition-all duration-500 group" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-white rounded-2xl text-2xl md:text-3xl text-gray-900 smooth-shadow group-hover:scale-110 group-hover:rotate-6 group-hover:text-red-500 transition-all duration-500 mb-6 md:mb-8">
                   <i className={principle.icon} />
                 </div>
-                <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">{principle.title}</h3>
-                <p className="text-sm text-gray-500 font-medium leading-relaxed tracking-tight">{principle.description}</p>
+                <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-3 md:mb-4 tracking-tight">{principle.title}</h3>
+                <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed tracking-tight">{principle.description}</p>
               </div>
             ))}
           </div>
@@ -589,14 +678,14 @@ export default function HomePage() {
       </section>
 
       {/* 🌑 푸터 (다크 & 미니멀) */}
-      <footer className="bg-gray-900 text-white py-24 px-6 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 relative z-10">
-          <div className="md:col-span-2 space-y-8">
+      <footer className="bg-gray-900 text-white py-16 md:py-24 px-6 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-16 relative z-10">
+          <div className="md:col-span-2 space-y-6 md:space-y-8">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-red-500 rounded-full" />
-              <span className="text-3xl font-black tracking-tighter">시민신문고</span>
+              <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />
+              <span className="text-2xl md:text-3xl font-black tracking-tighter">시민신문고</span>
             </div>
-            <p className="text-gray-500 font-bold max-w-sm leading-relaxed">
+            <p className="text-gray-500 font-bold max-w-sm leading-relaxed text-sm md:text-base">
               증거와 구조로 '상식'을 시각화합니다.<br />
               개인의 분노가 아닌 데이터로 세상을 바꿉니다.
             </p>
@@ -609,23 +698,47 @@ export default function HomePage() {
             </div>
           </div>
           <div>
-            <h4 className="text-xs font-black text-gray-600 uppercase tracking-[0.3em] mb-8">Platform</h4>
-            <ul className="space-y-4 font-bold text-sm text-gray-400">
-              {["최신 이슈", "공감 랭킹", "제보 가이드", "데이터 아카이브"].map(item => (
-                <li key={item} className="hover:text-white cursor-pointer transition-colors transition-transform hover:translate-x-1">{item}</li>
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Platform</h4>
+            <ul className="space-y-3 md:space-y-4 font-bold text-xs md:text-sm text-gray-400">
+              {[
+                { label: "최신 이슈", href: "/issues" },
+                { label: "공감 랭킹", href: "/ranking" },
+                { label: "제보 가이드", href: "/guide" },
+                { label: "데이터 아카이브", href: "/archive" },
+              ].map(item => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="hover:text-white transition-colors transition-transform hover:translate-x-1 inline-block"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
           <div>
-            <h4 className="text-xs font-black text-gray-600 uppercase tracking-[0.3em] mb-8">Information</h4>
-            <ul className="space-y-4 font-bold text-sm text-gray-400">
-              {["운영 원칙", "개인정보 처리방침", "이용 약관", "법률 자문단"].map(item => (
-                <li key={item} className="hover:text-white cursor-pointer transition-colors transition-transform hover:translate-x-1">{item}</li>
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Information</h4>
+            <ul className="space-y-3 md:space-y-4 font-bold text-xs md:text-sm text-gray-400">
+              {[
+                { label: "운영 원칙", href: "/principles" },
+                { label: "개인정보 처리방침", href: "/privacy" },
+                { label: "이용 약관", href: "/terms" },
+                { label: "법률자문단 및 시민배심원", href: "/advisory" },
+              ].map(item => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="hover:text-white transition-colors transition-transform hover:translate-x-1 inline-block"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6">
+        <div className="max-w-7xl mx-auto mt-16 md:mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
           <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2025 Citizen Justice. All Rights Reserved.</p>
           <div className="flex items-center gap-6">
             <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version 1.0.0-Beta</span>
@@ -640,45 +753,45 @@ export default function HomePage() {
       {/* 🖼 상세 이슈 모달 (부드러운 열림/닫힘) */}
       {activeModalId && currentModalIssue && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/80 backdrop-blur-md p-4 animate-slide-up" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-          <div className="bg-white rounded-[2.5rem] max-w-4xl w-full max-h-[90vh] overflow-hidden smooth-shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-gray-50 px-10 py-8 z-10 flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black border tracking-wider uppercase ${getStatusStyle(currentModalIssue.status)}`}>
+          <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] max-w-4xl w-full max-h-[90vh] overflow-hidden smooth-shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-gray-50 px-6 py-6 md:px-10 md:py-8 z-10 flex items-center justify-between">
+              <div className="space-y-1 md:space-y-2">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <span className={`px-2 py-0.5 rounded-lg text-[9px] md:text-[10px] font-black border tracking-wider uppercase ${getStatusStyle(currentModalIssue.status)}`}>
                     {currentModalIssue.status}
                   </span>
-                  <span className="text-[10px] font-bold text-gray-300 tracking-widest uppercase">{currentModalIssue.region} · {currentModalIssue.date}</span>
+                  <span className="text-[9px] md:text-[10px] font-bold text-gray-300 tracking-widest uppercase">{currentModalIssue.region} · {currentModalIssue.date}</span>
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 tracking-tighter">{currentModalIssue.title}</h2>
+                <h2 className="text-xl md:text-3xl font-black text-gray-900 tracking-tighter line-clamp-1">{currentModalIssue.title}</h2>
               </div>
-              <button onClick={closeModal} className="w-12 h-12 flex items-center justify-center bg-gray-50 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all duration-300">
-                <i className="ri-close-line text-2xl" />
+              <button onClick={closeModal} className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl md:rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all duration-300">
+                <i className="ri-close-line text-xl md:text-2xl" />
               </button>
             </div>
             
-            <div className="overflow-y-auto flex-grow p-10 space-y-12 no-scrollbar">
-              <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-[2rem] p-10 flex flex-col md:flex-row items-center justify-between gap-8 text-white">
+            <div className="overflow-y-auto flex-grow p-6 md:p-10 space-y-10 md:space-y-12 no-scrollbar">
+              <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-[1.5rem] md:rounded-[2rem] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 text-white">
                 <div className="space-y-2 text-center md:text-left">
-                  <div className="text-6xl font-black tracking-tighter text-red-500">{(supportedIds.includes(currentModalIssue.id) ? currentModalIssue.support + 1 : currentModalIssue.support).toLocaleString()}</div>
-                  <p className="text-sm font-bold text-gray-400 tracking-wide uppercase">명이 이 상식에 지지를 보냈습니다</p>
+                  <div className="text-4xl md:text-6xl font-black tracking-tighter text-red-500">{(supportedIds.includes(currentModalIssue.id) ? currentModalIssue.support + 1 : currentModalIssue.support).toLocaleString()}</div>
+                  <p className="text-xs font-bold text-gray-400 tracking-wide uppercase">명이 이 상식에 지지를 보냈습니다</p>
                 </div>
-                <button onClick={() => toggleSupport(currentModalIssue.id)} className={`px-10 py-5 rounded-2xl font-black text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? "bg-white/10 text-white border border-white/10 hover:bg-white/20" : "bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600"}`}>
+                <button onClick={() => toggleSupport(currentModalIssue.id)} className={`w-full md:w-auto px-8 py-4 md:px-10 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? "bg-white/10 text-white border border-white/10 hover:bg-white/20" : "bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600"}`}>
                   {supportedIds.includes(currentModalIssue.id) ? "지지를 철회하시겠습니까?" : "👍 상식에 지지하기"}
                 </button>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-12">
+              <div className="grid md:grid-cols-2 gap-8 md:gap-12">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-black text-gray-900 flex items-center gap-3">
+                  <h3 className="text-base md:text-lg font-black text-gray-900 flex items-center gap-3">
                     <span className="w-1.5 h-6 bg-red-500 rounded-full" />사건 개요
                   </h3>
-                  <p className="text-gray-500 font-medium leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100">{currentModalIssue.overview}</p>
+                  <p className="text-sm md:text-base text-gray-500 font-medium leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100">{currentModalIssue.overview}</p>
                 </div>
                 <div className="space-y-4">
-                  <h3 className="text-lg font-black text-gray-900 flex items-center gap-3">
+                  <h3 className="text-base md:text-lg font-black text-gray-900 flex items-center gap-3">
                     <span className="w-1.5 h-6 bg-red-500 rounded-full" />상식적 문제점
                   </h3>
-                  <p className="text-gray-500 font-medium leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100">{currentModalIssue.sense}</p>
+                  <p className="text-sm md:text-base text-gray-500 font-medium leading-relaxed bg-gray-50 p-6 rounded-2xl border border-gray-100">{currentModalIssue.sense}</p>
                 </div>
               </div>
 
@@ -688,21 +801,57 @@ export default function HomePage() {
                     <span className="w-1.5 h-6 bg-gray-900 rounded-full" />검증된 증거 자료
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {currentModalIssue.attachments.map((file, i) => (
-                      <div key={i} className="flex items-center gap-4 p-5 bg-gray-50 border border-gray-100 rounded-2xl hover:border-red-200 transition-all group cursor-pointer">
-                        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-xl text-xl text-gray-400 group-hover:text-red-500 transition-colors">
-                          <i className="ri-file-pdf-2-line" />
-                        </div>
-                        <span className="text-sm font-bold text-gray-600 truncate">{file}</span>
-                      </div>
-                    ))}
+                    {currentModalIssue.attachments.map((rawAttachment, i) => {
+                      const attachment = normalizeAttachment(rawAttachment)
+                      const isPdf = attachment.mime_type === 'application/pdf'
+                      const iconClass = isPdf ? 'ri-file-pdf-2-line' : 'ri-attachment-2'
+
+                      return (
+                        <button
+                          key={`${attachment.original_name}-${i}`}
+                          type="button"
+                          onClick={() => openAttachmentViewer(rawAttachment)}
+                          className="w-full text-left flex items-center gap-4 p-5 bg-gray-50 border border-gray-100 rounded-2xl hover:border-red-200 transition-all group cursor-pointer"
+                        >
+                          <div className="w-10 h-10 flex items-center justify-center bg-white rounded-xl text-xl text-gray-400 group-hover:text-red-500 transition-colors">
+                            <i className={iconClass} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-gray-600 truncate">{attachment.original_name}</p>
+                            <p className="text-[11px] font-bold text-gray-400 mt-1">
+                              클릭하여 보기
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
+
+              <div className="space-y-6 pt-6 border-t border-gray-50">
+                <h3 className="text-lg font-black text-gray-900 flex items-center gap-3">
+                  <span className="w-1.5 h-6 bg-red-500 rounded-full" />시민 라이브 채팅
+                </h3>
+                <IssueChatPanel issueId={currentModalIssue.id} />
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      <FileViewerModal
+        open={isAttachmentViewerOpen}
+        loading={isAttachmentLoading}
+        fileName={activeAttachment?.original_name}
+        fileUrl={activeAttachment?.file_url}
+        mimeType={activeAttachment?.mime_type}
+        fileTypeLabel={activeAttachment?.file_type}
+        onClose={() => {
+          setIsAttachmentViewerOpen(false)
+          setActiveAttachment(null)
+        }}
+      />
 
       {/* 🔔 알림 토스트 (미니멀 & 세련됨) */}
       {toast.visible && (

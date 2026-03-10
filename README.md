@@ -101,6 +101,12 @@ npm run db:types
 
 ---
 
+## 설계 문서
+
+- [회원 인증 방식 설계 문서](docs/authentication-design.md)
+
+---
+
 ## 법적 고려사항
 
 - 실명 공개 없음 (휴대폰 해시로만 식별)

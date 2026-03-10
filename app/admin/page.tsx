@@ -22,7 +22,7 @@ const CSS = `
 }
 html{font-size:14px;}
 body{background:var(--bg0);color:var(--t0);font-family:var(--f-sans);font-weight:400;line-height:1.6;overflow-x:hidden;min-height:100vh;}
-body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.045) 2px,rgba(0,0,0,.045) 4px);}
+
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:var(--bg1);}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
