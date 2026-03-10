@@ -2,10 +2,8 @@
 import { supabase } from '@/lib/supabase'
 import type { Attachment } from '@/types'
 
-const BUCKET = 'attachments'
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
-const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.webp']
 
 export class UploadError extends Error {
   constructor(message: string) {
@@ -22,11 +20,6 @@ function validateFile(file: File): void {
   if (!ALLOWED_TYPES.includes(file.type)) {
     throw new UploadError('PDF, JPG, PNG, WEBP 파일만 업로드 가능합니다.')
   }
-}
-
-// 파일명 안전하게 처리
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_').toLowerCase()
 }
 
 function normalizeUrl(rawUrl: string): string {
@@ -63,54 +56,19 @@ export async function uploadAttachment(
 ): Promise<Attachment> {
   validateFile(file)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new UploadError('로그인이 필요합니다.')
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('file_type', fileType)
 
-  // Storage 경로: attachments/{issueId}/{timestamp}_{filename}
-  const timestamp = Date.now()
-  const safeName = sanitizeFileName(file.name)
-  const storagePath = `${issueId}/${timestamp}_${safeName}`
+  const res = await fetch(`/api/issues/${issueId}/upload`, {
+    method: 'POST',
+    body: formData,
+  })
 
-  // Supabase Storage 업로드
-  const { error: storageError } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    })
+  const json = await res.json()
+  if (!res.ok) throw new UploadError(json.error || '업로드 실패')
 
-  if (storageError) {
-    throw new UploadError(`업로드 실패: ${storageError.message}`)
-  }
-
-  // 서명된 URL 생성 (비공개 버킷 - 관리자 승인 전)
-  const { data: signedUrl } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(storagePath, 60 * 60 * 24 * 365) // 1년 유효
-
-  if (!signedUrl) throw new UploadError('URL 생성 실패')
-
-  // DB에 첨부파일 레코드 삽입 (is_approved: false - 관리자 검토 대기)
-  const { data, error: dbError } = await supabase
-    .from('attachments')
-    .insert({
-      issue_id: issueId,
-      file_url: signedUrl.signedUrl,
-      file_type: fileType,
-      original_name: file.name,
-      is_approved: false,
-    })
-    .select()
-    .single()
-
-  if (dbError) {
-    // DB 실패 시 Storage에서도 삭제
-    await supabase.storage.from(BUCKET).remove([storagePath])
-    throw new UploadError('파일 정보 저장 실패')
-  }
-
-  return data as Attachment
+  return json.data as Attachment
 }
 
 // ── 클라우드 URL 첨부 ────────────────────────────────────────
@@ -123,26 +81,20 @@ export async function addUrlAttachment(
   const normalizedUrl = normalizeUrl(fileUrl)
   const finalName = (originalName?.trim() || inferNameFromUrl(normalizedUrl)).slice(0, 120)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new UploadError('로그인이 필요합니다.')
-
-  const { data, error } = await supabase
-    .from('attachments')
-    .insert({
-      issue_id: issueId,
+  const res = await fetch(`/api/issues/${issueId}/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       file_url: normalizedUrl,
       file_type: fileType,
       original_name: finalName,
-      is_approved: false,
-    })
-    .select()
-    .single()
+    }),
+  })
 
-  if (error) {
-    throw new UploadError(`URL 첨부 실패: ${error.message}`)
-  }
+  const json = await res.json()
+  if (!res.ok) throw new UploadError(json.error || 'URL 첨부 실패')
 
-  return data as Attachment
+  return json.data as Attachment
 }
 
 // ── 첨부파일 삭제 (본인 것, 미승인 상태만) ──────────────────────
