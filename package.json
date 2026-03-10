@@ -1,6 +1,6 @@
 {
   "name": "issuejustice",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "> 증거와 구조로 '상식'을 시각화하는 시민 공론 플랫폼 / 사례로 묻고, 지지로 드러냅니다.",
   "main": "index.js",
   "scripts": {

@@ -1375,14 +1375,18 @@ export default function AdminPage() {
                 <div className="panel-head"><span className="panel-title">시스템 정보</span></div>
                 <div className="panel-body">
                   {[
-                    ['플랫폼 버전','v1.0.0-beta','var(--teal)'],
+                    ['플랫폼 버전', `v${process.env.NEXT_PUBLIC_APP_VERSION ?? '?'}`, 'var(--teal)'],
+                    ['빌드 일시', process.env.NEXT_PUBLIC_BUILD_TIME
+                      ? new Date(process.env.NEXT_PUBLIC_BUILD_TIME).toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                      : '-', 'var(--t0)'],
+                    ['커밋', (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? 'local').slice(0, 7), 'var(--t0)'],
                     ['Next.js','16.x','var(--t0)'],
                     ['Supabase SDK','2.99.0','var(--t0)'],
                     ['DB 상태','● 연결됨','var(--green)'],
                     ['이슈 총계', String(totalIssues), 'var(--teal)'],
                     ['마지막 체크',new Date().toLocaleDateString('ko-KR'),'var(--t0)'],
                   ].map(([l,v,c])=>(
-                    <div key={l} className="info-row"><span>{l}</span><span style={{color:c}}>{v}</span></div>
+                    <div key={l} className="info-row"><span>{l}</span><span style={{color:c, fontFamily: l==='커밋' ? 'var(--f-mono)' : undefined}}>{v}</span></div>
                   ))}
                   <div className="info-row"><span>업타임</span><span>{uptime}</span></div>
                   <div style={{display:'flex',gap:'8px',marginTop:'16px'}}>
