@@ -19,16 +19,22 @@ const MAX_MESSAGE_LENGTH = 300
 const MAX_MESSAGES = 200
 
 function applyWordFilter(text: string, words: string[]): { result: string; filtered: boolean } {
+  if (!text || typeof text !== 'string') return { result: text ?? '', filtered: false }
   let result = text
   let filtered = false
   for (const word of words) {
     const w = word.trim()
     if (!w) continue
-    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const re = new RegExp(escaped, 'gi')
-    if (re.test(result)) {
-      filtered = true
-      result = result.replace(re, '****')
+    try {
+      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // test()와 같은 regex 객체를 재사용하면 gi 플래그의 lastIndex가 이동해 replace 누락 발생 → replace만 사용하고 변경 여부로 판단
+      const replaced = result.replace(new RegExp(escaped, 'gi'), '****')
+      if (replaced !== result) {
+        filtered = true
+        result = replaced
+      }
+    } catch {
+      // 잘못된 정규식은 건너뜀
     }
   }
   return { result, filtered }
@@ -95,14 +101,17 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
   }, [])
 
   useEffect(() => {
-    fetch('/api/admin/settings')
+    const controller = new AbortController()
+    fetch('/api/admin/settings', { signal: controller.signal })
       .then(r => r.json())
       .then(json => {
-        if (json.data?.chat_banned_words) {
-          setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
+        const raw = json.data?.chat_banned_words
+        if (raw && typeof raw === 'string') {
+          setBannedWords(raw.split(',').map((w: string) => w.trim()).filter(Boolean))
         }
       })
       .catch(() => {})
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {
@@ -161,7 +170,12 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
       return
     }
 
-    const { result: filteredMessage } = applyWordFilter(normalizedMessage.slice(0, MAX_MESSAGE_LENGTH), bannedWords)
+    let filteredMessage = normalizedMessage.slice(0, MAX_MESSAGE_LENGTH)
+    try {
+      filteredMessage = applyWordFilter(filteredMessage, bannedWords).result
+    } catch {
+      // 필터 오류 시 원문 그대로 저장
+    }
 
     const newMessage: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -194,7 +208,13 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
           </div>
         ) : (
           messages.map(message => {
-            const { result: displayMsg, filtered } = applyWordFilter(message.message, bannedWords)
+            let displayMsg = message.message ?? ''
+            let filtered = false
+            try {
+              const r = applyWordFilter(displayMsg, bannedWords)
+              displayMsg = r.result
+              filtered = r.filtered
+            } catch { /* 필터 오류 무시 */ }
             return (
               <div key={message.id} className="text-sm leading-relaxed">
                 <span
