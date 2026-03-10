@@ -179,47 +179,43 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
       </div>
 
       <div className="p-3 md:p-4 border-t border-white/10 bg-[#111111]">
-        <div className="flex flex-col gap-2">
-          {/* Top row: Nickname and Submit in one line for very small screens or separate? 
-              Let's try: Nickname and Message input are flexible, button is fixed. */}
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={nickname}
+            onChange={e => handleNicknameChange(e.target.value)}
+            placeholder="닉네임"
+            maxLength={20}
+            className="w-full sm:w-32 md:w-48 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-xs md:text-sm font-bold text-white placeholder:text-gray-500 focus:outline-none focus:border-red-400 flex-shrink-0"
+          />
+          <div className="w-full min-w-0 sm:flex-1 flex gap-2">
             <input
-              value={nickname}
-              onChange={e => handleNicknameChange(e.target.value)}
-              placeholder="닉네임"
-              maxLength={20}
-              className="w-24 sm:w-32 md:w-48 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-xs md:text-sm font-bold text-white placeholder:text-gray-500 focus:outline-none focus:border-red-400 flex-shrink-0"
+              value={draft}
+              onChange={e => {
+                setDraft(e.target.value)
+                if (error) setError('')
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="메시지 입력..."
+              maxLength={MAX_MESSAGE_LENGTH}
+              className="flex-1 min-w-0 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-xs md:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-red-400"
             />
-            <div className="flex-1 flex gap-2">
-              <input
-                value={draft}
-                onChange={e => {
-                  setDraft(e.target.value)
-                  if (error) setError('')
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend()
-                  }
-                }}
-                placeholder="메시지 입력..."
-                maxLength={MAX_MESSAGE_LENGTH}
-                className="flex-1 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-xs md:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-red-400 min-w-0"
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                className="px-3 md:px-4 py-2 rounded-xl bg-red-500 text-white text-xs md:text-sm font-black hover:bg-red-600 transition-colors flex-shrink-0"
-              >
-                전송
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSend}
+              className="px-3 md:px-4 py-2 rounded-xl bg-red-500 text-white text-xs md:text-sm font-black hover:bg-red-600 transition-colors shrink-0"
+            >
+              전송
+            </button>
           </div>
         </div>
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[9px] md:text-[11px] font-bold text-gray-500">{draft.length}/{MAX_MESSAGE_LENGTH}</p>
-          {error && <p className="text-[9px] md:text-[11px] font-bold text-red-400">{error}</p>}
+          {error && <p className="text-[9px] md:text-[11px] font-bold text-red-400 break-words">{error}</p>}
         </div>
       </div>
     </section>

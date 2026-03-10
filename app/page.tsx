@@ -16,6 +16,7 @@ interface IssueAttachment {
 }
 
 type IssueAttachmentInput = string | IssueAttachment
+type SharePlatform = 'x' | 'facebook' | 'kakaostory'
 
 const DEMO_ATTACHMENT_LIBRARY: Record<string, { url: string; mimeType: string }> = {
   '처분서_A구.pdf': { url: '/evidence/sample-proof.svg', mimeType: 'image/svg+xml' },
@@ -203,17 +204,73 @@ export default function HomePage() {
     }
   }
 
-  const openModal = (id: number) => {
-    setActiveModalId(id)
-    document.body.style.overflow = "hidden"
+  const buildIssueShareUrl = (id: number) => {
+    if (typeof window === 'undefined') return `/?issue=${id}`
+    const url = new URL(window.location.href)
+    url.searchParams.set('issue', String(id))
+    return url.toString()
   }
 
-  const closeModal = () => {
+  const updateIssueQueryParam = (issueId: number | null, historyMode: 'push' | 'replace' = 'push') => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+
+    if (issueId === null) {
+      url.searchParams.delete('issue')
+    } else {
+      url.searchParams.set('issue', String(issueId))
+    }
+
+    if (historyMode === 'replace') {
+      window.history.replaceState(window.history.state, '', url.toString())
+    } else {
+      window.history.pushState(window.history.state, '', url.toString())
+    }
+  }
+
+  const openModal = (id: number, options?: { syncUrl?: boolean }) => {
+    setActiveModalId(id)
+    document.body.style.overflow = "hidden"
+    if (options?.syncUrl !== false) {
+      updateIssueQueryParam(id)
+    }
+  }
+
+  const closeModal = (options?: { syncUrl?: boolean }) => {
     setActiveModalId(null)
     document.body.style.overflow = "auto"
     setIsAttachmentViewerOpen(false)
     setActiveAttachment(null)
+    if (options?.syncUrl !== false) {
+      updateIssueQueryParam(null)
+    }
   }
+
+  useEffect(() => {
+    const syncModalFromUrl = () => {
+      const issueParam = new URLSearchParams(window.location.search).get('issue')
+      if (!issueParam) {
+        closeModal({ syncUrl: false })
+        return
+      }
+
+      const issueId = Number(issueParam)
+      const isValidIssue = Number.isInteger(issueId) && ISSUES.some(issue => issue.id === issueId)
+      if (!isValidIssue) {
+        closeModal({ syncUrl: false })
+        return
+      }
+
+      openModal(issueId, { syncUrl: false })
+    }
+
+    syncModalFromUrl()
+    window.addEventListener('popstate', syncModalFromUrl)
+    return () => {
+      window.removeEventListener('popstate', syncModalFromUrl)
+      document.body.style.overflow = 'auto'
+    }
+  }, [])
 
   const openAttachmentViewer = async (input: IssueAttachmentInput) => {
     const attachment = normalizeAttachment(input)
@@ -303,6 +360,50 @@ export default function HomePage() {
   const filteredIssues = issueFilter === "전체" ? ISSUES : ISSUES.filter(i => i.tags.includes(issueFilter))
   const sortedRanking = [...ISSUES].sort((a, b) => b.support - a.support).slice(0, 5)
   const currentModalIssue = ISSUES.find(i => i.id === activeModalId)
+  const issueShareUrl = currentModalIssue ? buildIssueShareUrl(currentModalIssue.id) : ''
+
+  const copyIssueShareUrl = async () => {
+    if (!issueShareUrl) return
+    try {
+      await navigator.clipboard.writeText(issueShareUrl)
+      showToast('이슈 링크를 복사했습니다.')
+      return
+    } catch {
+      // fallback below
+    }
+
+    const textarea = document.createElement('textarea')
+    textarea.value = issueShareUrl
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+
+    if (copied) {
+      showToast('이슈 링크를 복사했습니다.')
+    } else {
+      showToast('URL 복사에 실패했습니다. 링크를 직접 선택해 복사해 주세요.')
+    }
+  }
+
+  const shareIssueToSns = (platform: SharePlatform) => {
+    if (!currentModalIssue || !issueShareUrl) return
+
+    const shareText = `[시민신문고] ${currentModalIssue.title}`
+    const encodedUrl = encodeURIComponent(issueShareUrl)
+    const encodedText = encodeURIComponent(shareText)
+
+    const shareUrlByPlatform: Record<SharePlatform, string> = {
+      x: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      kakaostory: `https://story.kakao.com/share?url=${encodedUrl}`,
+    }
+
+    window.open(shareUrlByPlatform[platform], '_blank', 'noopener,noreferrer,width=640,height=720')
+  }
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -843,7 +944,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="text-xl md:text-3xl font-black text-gray-900 tracking-tighter line-clamp-1">{currentModalIssue.title}</h2>
               </div>
-              <button onClick={closeModal} className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl md:rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all duration-300">
+              <button onClick={() => closeModal()} className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl md:rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all duration-300">
                 <i className="ri-close-line text-xl md:text-2xl" />
               </button>
             </div>
@@ -854,9 +955,60 @@ export default function HomePage() {
                   <div className="text-4xl md:text-6xl font-black tracking-tighter text-red-500">{(supportedIds.includes(currentModalIssue.id) ? currentModalIssue.support + 1 : currentModalIssue.support).toLocaleString()}</div>
                   <p className="text-xs font-bold text-gray-400 tracking-wide uppercase">명이 이 상식에 지지를 보냈습니다</p>
                 </div>
-                <button onClick={() => toggleSupport(currentModalIssue.id)} className={`w-full md:w-auto px-8 py-4 md:px-10 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? "bg-white/10 text-white border border-white/10 hover:bg-white/20" : "bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600"}`}>
-                  {supportedIds.includes(currentModalIssue.id) ? "지지를 철회하시겠습니까?" : "👍 상식에 지지하기"}
-                </button>
+                <div className="w-full md:w-auto md:min-w-[360px] space-y-3">
+                  <button onClick={() => toggleSupport(currentModalIssue.id)} className={`w-full px-8 py-4 md:px-10 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? "bg-white/10 text-white border border-white/10 hover:bg-white/20" : "bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600"}`}>
+                    {supportedIds.includes(currentModalIssue.id) ? "지지를 철회하시겠습니까?" : "👍 상식에 지지하기"}
+                  </button>
+                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 space-y-3">
+                    <p className="text-[10px] md:text-[11px] font-black text-gray-300 uppercase tracking-[0.16em]">이슈 링크 공유</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={copyIssueShareUrl}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-share-forward-line text-base" />
+                        공유
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          shareIssueToSns('x')
+                        }}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-twitter-x-line text-base" />
+                        X
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          shareIssueToSns('facebook')
+                        }}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-facebook-circle-line text-base" />
+                        Facebook
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          shareIssueToSns('kakaostory')
+                        }}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-chat-3-line text-base" />
+                        Kakao
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-8 md:gap-12">
