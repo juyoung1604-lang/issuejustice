@@ -515,7 +515,7 @@ export default function HomePage() {
 
           <div className="relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
             <div className="relative space-y-2.5 sm:space-y-4 bg-white/40 backdrop-blur-xl p-3 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
-              {ISSUES.slice(0, 4).map((issue, i) => (
+              {ISSUES.slice(0, 5).map((issue, i) => (
                 <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-2.5 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
                   <div className={`flex-shrink-0 w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-[10px] sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
                     {i + 1}
