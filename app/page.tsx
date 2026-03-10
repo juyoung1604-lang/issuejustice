@@ -7,7 +7,6 @@ import FileViewerModal from '@/components/FileViewerModal'
 import IssueChatPanel from '@/components/IssueChatPanel'
 import { FileUpload } from '@/components/FileUpload'
 import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
 
 interface IssueAttachment {
   id?: string
@@ -149,18 +148,11 @@ export default function HomePage() {
   // 제보 폼 상태
   const [formStep, setFormStep] = useState(1)
   const [formData, setFormData] = useState({
-    title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: ""
+    title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: "", email: ""
   })
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [createdIssueId, setCreatedIssueId] = useState<string | null>(null)
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false)
-
-  // 이메일 연결 상태 (Step 3)
-  const [linkEmail, setLinkEmail] = useState('')
-  const [linkOtp, setLinkOtp] = useState('')
-  const [linkStep, setLinkStep] = useState<'idle' | 'sending' | 'otp' | 'verified'>('idle')
-  const [linkError, setLinkError] = useState('')
-  const [linkLoading, setLinkLoading] = useState(false)
 
   // 애니메이션용 Observer
   useEffect(() => {
@@ -331,6 +323,7 @@ export default function HomePage() {
           sense: formData.problemSense,
           requests: selectedRequests,
           submitter_token: submitterToken || null,
+          submitter_email: formData.email.trim() || null,
         }),
       })
       if (res.ok) {
@@ -352,67 +345,8 @@ export default function HomePage() {
     showToast("제보가 성공적으로 접수되었습니다. 검토 후 공개됩니다.")
     setFormStep(1)
     setCreatedIssueId(null)
-    setFormData({ title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: "" })
+    setFormData({ title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: "", email: "" })
     setSelectedRequests([])
-    setLinkEmail('')
-    setLinkOtp('')
-    setLinkStep('idle')
-    setLinkError('')
-  }
-
-  const handleLinkSendOtp = async () => {
-    if (!linkEmail.trim()) return
-    setLinkError('')
-    setLinkLoading(true)
-    setLinkStep('sending')
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: linkEmail.trim(),
-        options: { shouldCreateUser: true },
-      })
-      if (error) throw error
-      setLinkStep('otp')
-    } catch (err: unknown) {
-      setLinkError(err instanceof Error ? err.message : '이메일 발송에 실패했습니다.')
-      setLinkStep('idle')
-    } finally {
-      setLinkLoading(false)
-    }
-  }
-
-  const handleLinkVerifyOtp = async () => {
-    if (linkOtp.length < 6 || !createdIssueId) return
-    setLinkError('')
-    setLinkLoading(true)
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: linkEmail.trim(),
-        token: linkOtp.trim(),
-        type: 'email',
-      })
-      if (error) throw error
-
-      const userId = data.user?.id
-      if (!userId) throw new Error('사용자 정보를 확인할 수 없습니다.')
-
-      // 이슈의 submitter_token을 user.id로 업데이트
-      const deviceToken = submitterToken
-      const res = await fetch(`/api/issues/${createdIssueId}/link`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_token: deviceToken, user_id: userId }),
-      })
-      if (!res.ok) {
-        const json = await res.json()
-        throw new Error(json.error || '연결 실패')
-      }
-
-      setLinkStep('verified')
-    } catch (err: unknown) {
-      setLinkError(err instanceof Error ? err.message : '인증 코드가 올바르지 않습니다.')
-    } finally {
-      setLinkLoading(false)
-    }
   }
 
   const toggleRequest = (req: string) => {
@@ -966,6 +900,18 @@ export default function HomePage() {
                         required 
                       />
                     </div>
+                    <div className="group">
+                      <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4 group-focus-within:text-red-500 transition-colors">
+                        이메일 주소 <span className="normal-case font-bold text-gray-300 ml-1">선택 · 검토 결과 알림용</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        placeholder="example@email.com"
+                        className="w-full bg-white px-6 py-4 md:px-8 md:py-6 border-2 border-gray-200 rounded-2xl md:rounded-[2rem] focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all text-base md:text-xl font-bold placeholder:text-gray-300"
+                      />
+                    </div>
                     <div className="flex gap-4 md:gap-6">
                       <button type="button" onClick={() => setFormStep(1)} className="flex-1 py-5 md:py-7 bg-gray-50 text-gray-400 font-black rounded-2xl md:rounded-[2rem] hover:bg-gray-100 transition-all text-base md:text-xl">이전 단계</button>
                       <button
@@ -1012,114 +958,6 @@ export default function HomePage() {
                     ) : (
                       <div className="text-center py-8 text-gray-400 text-sm font-bold">
                         이슈 정보를 불러오는 중입니다...
-                      </div>
-                    )}
-
-                    {/* 이메일 연결 섹션 — 비로그인 사용자에게만 표시 */}
-                    {!user && (
-                      <div className="border-2 border-dashed border-gray-200 rounded-2xl md:rounded-[2rem] overflow-hidden">
-                        {linkStep === 'verified' ? (
-                          /* 인증 완료 */
-                          <div className="p-6 md:p-8 flex flex-col items-center gap-3 text-center bg-emerald-50">
-                            <div className="w-12 h-12 flex items-center justify-center bg-emerald-500 rounded-2xl">
-                              <i className="ri-shield-check-fill text-2xl text-white" />
-                            </div>
-                            <p className="text-base font-black text-emerald-800">이메일 인증 완료!</p>
-                            <p className="text-xs text-emerald-600 font-medium leading-relaxed">
-                              <span className="font-black">{linkEmail}</span> 계정에 이 제보가 연결되었습니다.<br />
-                              언제 어디서든 <strong>내 제보</strong>에서 확인할 수 있습니다.
-                            </p>
-                          </div>
-                        ) : linkStep === 'otp' ? (
-                          /* OTP 입력 */
-                          <div className="p-6 md:p-8 space-y-4">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="w-9 h-9 flex items-center justify-center bg-gray-900 rounded-xl shrink-0">
-                                <i className="ri-shield-keyhole-line text-white" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-black text-gray-900">인증 코드 입력</p>
-                                <p className="text-xs text-gray-400 font-medium">{linkEmail} 로 발송된 6자리 코드</p>
-                              </div>
-                            </div>
-                            <input
-                              type="text"
-                              value={linkOtp}
-                              onChange={e => setLinkOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                              placeholder="123456"
-                              inputMode="numeric"
-                              maxLength={6}
-                              autoFocus
-                              className="w-full px-5 py-4 border-2 border-gray-200 rounded-2xl text-2xl font-black text-gray-900 text-center tracking-[0.5em] placeholder:text-gray-200 placeholder:tracking-normal focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all"
-                            />
-                            {linkError && (
-                              <p className="text-xs text-red-500 font-bold bg-red-50 px-4 py-2 rounded-xl">
-                                <i className="ri-error-warning-line mr-1" />{linkError}
-                              </p>
-                            )}
-                            <div className="flex gap-3">
-                              <button
-                                type="button"
-                                onClick={() => { setLinkStep('idle'); setLinkOtp(''); setLinkError('') }}
-                                className="flex-1 py-3 bg-gray-100 text-gray-500 font-black rounded-xl hover:bg-gray-200 transition-all text-sm"
-                              >
-                                취소
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleLinkVerifyOtp}
-                                disabled={linkLoading || linkOtp.length < 6}
-                                className="flex-[2] py-3 bg-gray-900 text-white font-black rounded-xl hover:bg-red-500 transition-all duration-300 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
-                              >
-                                {linkLoading ? (
-                                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 확인 중...</>
-                                ) : (
-                                  <><i className="ri-shield-check-line" /> 인증 완료</>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          /* 이메일 입력 */
-                          <div className="p-6 md:p-8 space-y-4">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-xl shrink-0">
-                                <i className="ri-mail-lock-line text-gray-500 text-lg" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-black text-gray-900">이메일로 내 제보 연결 <span className="text-xs font-bold text-gray-400 ml-1">선택</span></p>
-                                <p className="text-xs text-gray-400 font-medium">이메일 인증 시 어떤 기기에서도 내 제보를 확인할 수 있습니다</p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <input
-                                type="email"
-                                value={linkEmail}
-                                onChange={e => { setLinkEmail(e.target.value); setLinkError('') }}
-                                placeholder="example@email.com"
-                                className="flex-1 min-w-0 px-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleLinkSendOtp}
-                                disabled={linkLoading || !linkEmail.trim()}
-                                className="shrink-0 px-4 py-3 bg-gray-900 text-white font-black rounded-xl hover:bg-red-500 transition-all duration-300 disabled:opacity-50 text-sm flex items-center gap-1.5 whitespace-nowrap"
-                              >
-                                {linkLoading ? (
-                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                  <i className="ri-mail-send-line" />
-                                )}
-                                인증 코드 받기
-                              </button>
-                            </div>
-                            {linkError && (
-                              <p className="text-xs text-red-500 font-bold bg-red-50 px-4 py-2 rounded-xl">
-                                <i className="ri-error-warning-line mr-1" />{linkError}
-                              </p>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
 
