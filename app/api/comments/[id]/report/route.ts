@@ -3,9 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const commentId = params.id
+  const { id: commentId } = await params
   const { issueId, reporterEmail, reason } = await request.json()
 
   if (!commentId || !issueId || !reporterEmail || !reason) {
