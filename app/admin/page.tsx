@@ -783,7 +783,7 @@ export default function AdminPage() {
           <div className="tb-divider" />
           <div className="tb-sys">DB CONNECTED</div>
           <div className="tb-divider" />
-          <div className="tb-sys">v1.0.0-beta</div>
+          <div className="tb-sys">v{process.env.NEXT_PUBLIC_APP_VERSION ?? '?'}</div>
           <div className="tb-clock">{clock}</div>
         </div>
         <div className="tb-right">
