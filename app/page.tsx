@@ -5,6 +5,7 @@ import Link from 'next/link'
 import MyPageDrawer from '@/components/MyPageDrawer'
 import FileViewerModal from '@/components/FileViewerModal'
 import IssueChatPanel from '@/components/IssueChatPanel'
+import { FileUpload } from '@/components/FileUpload'
 
 interface IssueAttachment {
   id?: string
@@ -147,6 +148,8 @@ export default function HomePage() {
     title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: ""
   })
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
+  const [createdIssueId, setCreatedIssueId] = useState<string | null>(null)
+  const [isSubmittingIssue, setIsSubmittingIssue] = useState(false)
 
   // 디바이스 토큰 초기화
   useEffect(() => {
@@ -246,6 +249,14 @@ export default function HomePage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+  }
+
+  const handleCreateIssueAndNext = async () => {
+    if (!formData.overview || !formData.problemSense) {
+      showToast("사건 개요와 문제점을 모두 입력해 주세요.")
+      return
+    }
+    setIsSubmittingIssue(true)
     try {
       const res = await fetch('/api/issues', {
         method: 'POST',
@@ -263,17 +274,24 @@ export default function HomePage() {
         }),
       })
       if (res.ok) {
-        showToast("제보가 성공적으로 접수되었습니다. 검토 후 공개됩니다.")
+        const json = await res.json()
+        setCreatedIssueId(json.data?.id ?? null)
+        setFormStep(3)
       } else {
         const json = await res.json()
         showToast(json.error || "제보 접수 중 오류가 발생했습니다.")
-        return
       }
     } catch {
       showToast("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
-      return
+    } finally {
+      setIsSubmittingIssue(false)
     }
+  }
+
+  const handleCompleteSubmission = () => {
+    showToast("제보가 성공적으로 접수되었습니다. 검토 후 공개됩니다.")
     setFormStep(1)
+    setCreatedIssueId(null)
     setFormData({ title: "", type: "", field: "", region: "", date: "", overview: "", problemSense: "" })
     setSelectedRequests([])
   }
@@ -363,28 +381,28 @@ export default function HomePage() {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase">
               <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> 시민 공론 플랫폼
             </div>
-            <h1 className="text-4xl sm:text-5xl md:text-8xl font-black leading-[1.1] tracking-tighter text-gray-900">
-              상식을<br />기록하면<br /><span className="text-red-500">세상이 바뀐다</span>
+            <h1 className="text-6xl sm:text-6xl md:text-8xl font-black leading-[1.05] tracking-tighter text-gray-900 break-keep">
+              상식을<br />기록하면<br /><span className="text-red-500">세상이<br className="sm:hidden" /> 바뀐다</span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-lg font-medium">
-              불합리한 법집행 사례를 증거와 구조로 기록하고,<br className="hidden sm:block" />
+            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-full sm:max-w-lg font-medium break-keep">
+              불합리한 법집행 사례를 증거와 구조로 기록하고,
               시민의 지지와 공감으로 공론화합니다. 데이터로 상식을 시각화합니다.
             </p>
             
-            <div className="flex flex-wrap justify-start gap-6 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
+            <div className="flex flex-wrap justify-start gap-4 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
               {[["등록 이슈", STATS.totalIssues], ["누적 공감", "18.4k"], ["해결 사례", STATS.resolvedCases]].map(([label, val]) => (
-                <div key={label as string}>
-                  <div className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
-                  <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{label}</div>
+                <div key={label as string} className="min-w-fit">
+                  <div className="text-2xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
+                  <div className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{label}</div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-start">
-              <button onClick={() => scrollToSection("register")} className="px-5 py-3.5 sm:px-8 sm:py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-sm sm:text-lg active:scale-95">
-                지금 이슈 제보하기 <i className="ri-arrow-right-line ml-2" />
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-start w-full sm:w-auto">
+              <button onClick={() => scrollToSection("register")} className="w-full sm:w-auto px-6 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center gap-2">
+                지금 이슈 제보하기 <i className="ri-arrow-right-line" />
               </button>
-              <button onClick={() => scrollToSection("issues")} className="px-5 py-3.5 sm:px-8 sm:py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-sm sm:text-lg active:scale-95">
+              <button onClick={() => scrollToSection("issues")} className="w-full sm:w-auto px-6 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center">
                 실시간 이슈 보기
               </button>
             </div>
@@ -541,12 +559,15 @@ export default function HomePage() {
               {/* 폼 단계 표시기 (확대됨) */}
               <div className="flex items-center justify-between mb-10 md:mb-16 relative z-10">
                 <div className="flex flex-col gap-1 md:gap-2">
-                  <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 2</span>
-                  <h3 className="text-xl md:text-3xl font-black text-gray-900">{formStep === 1 ? "기본 정보 입력" : "상세 내용 작성"}</h3>
+                  <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 3</span>
+                  <h3 className="text-xl md:text-3xl font-black text-gray-900">
+                    {formStep === 1 ? "기본 정보 입력" : formStep === 2 ? "상세 내용 작성" : "자료 업로드"}
+                  </h3>
                 </div>
                 <div className="flex gap-2 md:gap-3 bg-gray-50 p-2 rounded-full border border-gray-100">
                   <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 1 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
                   <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 2 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
+                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 3 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
                 </div>
               </div>
               
@@ -646,8 +667,66 @@ export default function HomePage() {
                     </div>
                     <div className="flex gap-4 md:gap-6">
                       <button type="button" onClick={() => setFormStep(1)} className="flex-1 py-5 md:py-7 bg-gray-50 text-gray-400 font-black rounded-2xl md:rounded-[2rem] hover:bg-gray-100 transition-all text-base md:text-xl">이전 단계</button>
-                      <button type="submit" className="flex-[2] py-5 md:py-7 bg-red-500 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-600 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-[0.98] text-lg md:text-2xl">기록하기</button>
+                      <button
+                        type="button"
+                        onClick={handleCreateIssueAndNext}
+                        disabled={isSubmittingIssue}
+                        className="flex-[2] py-5 md:py-7 bg-red-500 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-600 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-[0.98] text-lg md:text-2xl disabled:opacity-60 disabled:scale-100 inline-flex items-center justify-center gap-3"
+                      >
+                        {isSubmittingIssue ? (
+                          <>
+                            <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            접수 중...
+                          </>
+                        ) : (
+                          <>
+                            다음: 자료 첨부
+                            <i className="ri-arrow-right-line" />
+                          </>
+                        )}
+                      </button>
                     </div>
+                  </div>
+                ) : (
+                  /* Step 3: 자료 업로드 */
+                  <div className="space-y-8 md:space-y-10 step-enter">
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 md:p-6">
+                      <div className="flex items-start gap-3">
+                        <i className="ri-information-line text-blue-500 text-xl mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-sm md:text-base font-black text-blue-900">자료 첨부는 선택 사항입니다</p>
+                          <p className="text-xs md:text-sm text-blue-700 mt-1 font-medium leading-relaxed">
+                            판결문, 처분서, 공문, 녹취요약, 언론기사 등 이슈를 뒷받침하는 자료를 첨부하면 검토 및 공론화에 도움이 됩니다.
+                            파일(PDF·이미지) 또는 클라우드 URL로 첨부할 수 있습니다.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {createdIssueId ? (
+                      <FileUpload
+                        mode="remote"
+                        issueId={createdIssueId}
+                      />
+                    ) : (
+                      <div className="text-center py-8 text-gray-400 text-sm font-bold">
+                        이슈 정보를 불러오는 중입니다...
+                      </div>
+                    )}
+
+                    <div className="flex gap-4 md:gap-6 pt-4">
+                      <button
+                        type="button"
+                        onClick={handleCompleteSubmission}
+                        className="w-full py-5 md:py-7 bg-gray-900 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 active:scale-[0.98] text-lg md:text-2xl group"
+                      >
+                        제보 완료하기
+                        <i className="ri-check-line ml-3 group-hover:scale-110 transition-transform" />
+                      </button>
+                    </div>
+                    <p className="text-center text-xs text-gray-400 font-medium">
+                      자료를 첨부하지 않아도 제보가 접수됩니다. 나중에 추가할 수 없으니 지금 첨부해 주세요.
+                    </p>
                   </div>
                 )}
               </form>
