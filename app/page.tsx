@@ -902,7 +902,7 @@ export default function HomePage() {
                     </div>
                     <div className="group">
                       <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4 group-focus-within:text-red-500 transition-colors">
-                        이메일 주소 <span className="normal-case font-bold text-gray-300 ml-1">내 제보 검토 결과 알림용</span>
+                        이메일 주소 <span className="normal-case font-bold text-gray-300 ml-1">선택 · 검토 결과 확인용</span>
                       </label>
                       <input
                         type="email"
