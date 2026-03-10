@@ -746,8 +746,8 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex flex-wrap justify-start gap-2 md:gap-3 mb-2 md:mb-4">
-                    {issue.tags.map(tag => (
-                      <span key={tag} className="px-2 py-0.5 md:px-3 md:py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
+                    {issue.tags.map((tag, ti) => (
+                      <span key={`${tag}-${ti}`} className="px-2 py-0.5 md:px-3 md:py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
                     ))}
                   </div>
                   <h3 className="text-base sm:text-lg md:text-2xl font-black text-white group-hover:text-red-400 transition-colors duration-300 tracking-tight leading-snug">{issue.title}</h3>
