@@ -1,0 +1,97 @@
+[00:00:00.886] Server  LOG     ✓ Ready in 797ms
+[00:00:14.541] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:24.890] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:21:32.351] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:21:32.752] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:10.716] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:35:10.819] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:35:10.824] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:35:10.843] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:35:11.069] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:11.106] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:11.226] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:35:11.348] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:35:21.622] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:22.202] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:27.912] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:28.012] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:28.016] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:28.036] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:28.274] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:28.303] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:28.424] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:29.350] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:34.456] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:34.468] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:34.538] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:34.542] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:38:34.721] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:34.737] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:34.914] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:34.974] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:35.060] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:35.348] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:39.657] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:39.681] Server  ERROR   ⨯ ReferenceError: deviceToken is not defined
+[00:38:39.855] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:39.974] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:40.002] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:40.351] Browser ERROR   uncaughtError: ReferenceError: deviceToken is not defined
+[00:38:45.841] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:38:46.064] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:50:50.591] Browser ERROR   The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [false, fa20e60c-e98c-40ad-8d82-efaedbf27f70, async ()=>{
+            if (!submitterToken) return;
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/my-issues?token=${submitterToken}`);
+                const json = await res.json();
+                if (json.data) setIssues(json.data);
+            } catch  {
+                showToast('목록을 불러오지 못했습니다.');
+            } finally{
+                setLoading(false);
+            }
+        }] [false, , false, async ()=>{
+            if (!submitterToken) return;
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/my-issues?token=${submitterToken}`);
+                const json = await res.json();
+                if (json.data) setIssues(json.data);
+            } catch  {
+                showToast('목록을 불러오지 못했습니다.');
+            } finally{
+                setLoading(false);
+            }
+        }]
+[00:50:51.348] Browser ERROR   The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [false, 8f801803-6c70-431b-90af-23f42cad4236, async ()=>{
+            if (!submitterToken) return;
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/my-issues?token=${submitterToken}`);
+                const json = await res.json();
+                if (json.data) setIssues(json.data);
+            } catch  {
+                showToast('목록을 불러오지 못했습니다.');
+            } finally{
+                setLoading(false);
+            }
+        }] [false, , false, async ()=>{
+            if (!submitterToken) return;
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/my-issues?token=${submitterToken}`);
+                const json = await res.json();
+                if (json.data) setIssues(json.data);
+            } catch  {
+                showToast('목록을 불러오지 못했습니다.');
+            } finally{
+                setLoading(false);
+            }
+        }]

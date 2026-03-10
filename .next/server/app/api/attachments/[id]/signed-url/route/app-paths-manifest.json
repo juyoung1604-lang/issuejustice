@@ -1,0 +1,3 @@
+{
+  "/api/attachments/[id]/signed-url/route": "app/api/attachments/[id]/signed-url/route.js"
+}

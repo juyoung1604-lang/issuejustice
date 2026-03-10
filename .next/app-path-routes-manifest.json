@@ -1,0 +1,23 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/admin/page": "/admin",
+  "/advisory/page": "/advisory",
+  "/api/admin/health/route": "/api/admin/health",
+  "/api/admin/issues/[id]/route": "/api/admin/issues/[id]",
+  "/api/admin/issues/route": "/api/admin/issues",
+  "/api/admin/stats/route": "/api/admin/stats",
+  "/api/attachments/[id]/signed-url/route": "/api/attachments/[id]/signed-url",
+  "/api/issues/route": "/api/issues",
+  "/api/my-issues/[id]/route": "/api/my-issues/[id]",
+  "/api/my-issues/route": "/api/my-issues",
+  "/archive/page": "/archive",
+  "/guide/page": "/guide",
+  "/issues/latest/page": "/issues/latest",
+  "/issues/page": "/issues",
+  "/page": "/",
+  "/principles/page": "/principles",
+  "/privacy/page": "/privacy",
+  "/ranking/page": "/ranking",
+  "/terms/page": "/terms"
+}

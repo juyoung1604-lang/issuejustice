@@ -738,18 +738,70 @@ export default function HomePage() {
 
           <div className="lg:col-span-3 fade-in" style={{ transitionDelay: '200ms' }}>
             <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 border border-gray-100 smooth-shadow-xl relative overflow-hidden">
-              {/* 폼 단계 표시기 (확대됨) */}
-              <div className="flex items-center justify-between mb-10 md:mb-16 relative z-10">
-                <div className="flex flex-col gap-1 md:gap-2">
-                  <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 3</span>
-                  <h3 className="text-xl md:text-3xl font-black text-gray-900">
-                    {formStep === 1 ? "기본 정보 입력" : formStep === 2 ? "상세 내용 작성" : "자료 업로드"}
-                  </h3>
+              {/* 폼 단계 표시기 — 클릭으로 이동 가능 */}
+              <div className="mb-10 md:mb-14 relative z-10">
+                {/* 단계 번호 + 라벨 */}
+                <div className="flex items-center gap-0 mb-6 md:mb-8">
+                  {[
+                    { n: 1, label: "기본 정보" },
+                    { n: 2, label: "상세 내용" },
+                    { n: 3, label: "자료 업로드" },
+                  ].map(({ n, label }, idx) => {
+                    const isActive = formStep === n
+                    const isDone = formStep > n
+                    // 클릭 가능 조건: 이미 지난 단계이거나 Step 3는 issueId가 있을 때
+                    const canClick =
+                      (n < formStep) ||
+                      (n === 3 && !!createdIssueId)
+                    return (
+                      <div key={n} className="flex items-center">
+                        <button
+                          type="button"
+                          disabled={!canClick && !isActive}
+                          onClick={() => {
+                            if (n === 1) setFormStep(1)
+                            else if (n === 2 && formStep !== 2) setFormStep(2)
+                            else if (n === 3 && createdIssueId) setFormStep(3)
+                          }}
+                          className={`flex flex-col items-center gap-1.5 group transition-all duration-200 ${canClick ? 'cursor-pointer' : isActive ? 'cursor-default' : 'cursor-not-allowed opacity-40'}`}
+                        >
+                          <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-sm md:text-base font-black transition-all duration-300 ${
+                            isActive
+                              ? 'bg-red-500 text-white shadow-lg shadow-red-200 scale-110'
+                              : isDone
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-400'
+                          } ${canClick && !isActive ? 'group-hover:bg-red-400 group-hover:text-white' : ''}`}>
+                            {isDone ? <i className="ri-check-line" /> : n}
+                          </div>
+                          <span className={`text-[10px] md:text-xs font-black whitespace-nowrap transition-colors ${isActive ? 'text-red-500' : isDone ? 'text-gray-700' : 'text-gray-300'}`}>
+                            {label}
+                          </span>
+                        </button>
+                        {idx < 2 && (
+                          <div className={`w-12 md:w-20 h-0.5 mx-1 md:mx-2 mb-5 transition-all duration-500 ${formStep > n ? 'bg-gray-900' : 'bg-gray-200'}`} />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="flex gap-2 md:gap-3 bg-gray-50 p-2 rounded-full border border-gray-100">
-                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 1 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
-                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 2 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
-                  <div className={`w-8 md:w-12 h-2 md:h-3 rounded-full transition-all duration-700 ${formStep >= 3 ? "bg-red-500 shadow-lg shadow-red-200" : "bg-gray-200"}`} />
+                {/* 현재 단계 제목 */}
+                <div className="flex items-center gap-3">
+                  {formStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormStep(formStep - 1 as 1 | 2)}
+                      className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all shrink-0"
+                    >
+                      <i className="ri-arrow-left-line text-base md:text-lg" />
+                    </button>
+                  )}
+                  <div>
+                    <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-500">Step {formStep} of 3</span>
+                    <h3 className="text-xl md:text-3xl font-black text-gray-900 leading-tight">
+                      {formStep === 1 ? "기본 정보 입력" : formStep === 2 ? "상세 내용 작성" : "자료 업로드"}
+                    </h3>
+                  </div>
                 </div>
               </div>
               
