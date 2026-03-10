@@ -169,6 +169,38 @@ function IssuesContent() {
     window.history.pushState(null, '', url.toString())
   }, [])
 
+  const buildShareUrl = (id: string) => {
+    if (typeof window === 'undefined') return `/issues?issue=${id}`
+    const url = new URL(window.location.href)
+    url.searchParams.set('issue', id)
+    return url.toString()
+  }
+
+  const copyShareUrl = async (id: string) => {
+    const url = buildShareUrl(id)
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const el = document.createElement('textarea')
+      el.value = url
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
+  }
+
+  const shareToSns = (platform: 'x' | 'facebook' | 'kakaostory', id: string, title: string) => {
+    const url = encodeURIComponent(buildShareUrl(id))
+    const text = encodeURIComponent(`[시민신문고] ${title}`)
+    const map: Record<string, string> = {
+      x: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      kakaostory: `https://story.kakao.com/share?url=${url}`,
+    }
+    window.open(map[platform], '_blank', 'noopener,noreferrer,width=640,height=720')
+  }
+
   const normalizeAttachment = (input: string | IssueAttachment): IssueAttachment => {
     if (typeof input !== 'string') return input
     const demo = DEMO_ATTACHMENT_LIBRARY[input]
@@ -547,12 +579,47 @@ function IssuesContent() {
                   </div>
                   <p className="text-xs font-bold text-gray-400 tracking-wide uppercase">명이 이 상식에 지지를 보냈습니다</p>
                 </div>
-                <button
-                  onClick={() => setSupportedIds(prev => prev.includes(currentModalIssue.id) ? prev.filter(id => id !== currentModalIssue.id) : [...prev, currentModalIssue.id])}
-                  className={`px-8 py-4 md:px-10 md:py-5 rounded-2xl font-black text-base md:text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? 'bg-white/10 text-white border border-white/10 hover:bg-white/20' : 'bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600'}`}
-                >
-                  {supportedIds.includes(currentModalIssue.id) ? '지지를 철회하시겠습니까?' : '👍 상식에 지지하기'}
-                </button>
+                <div className="w-full md:w-auto md:min-w-[360px] space-y-3">
+                  <button
+                    onClick={() => setSupportedIds(prev => prev.includes(currentModalIssue.id) ? prev.filter(id => id !== currentModalIssue.id) : [...prev, currentModalIssue.id])}
+                    className={`w-full px-8 py-4 md:px-10 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-lg transition-all duration-500 active:scale-95 ${supportedIds.includes(currentModalIssue.id) ? 'bg-white/10 text-white border border-white/10 hover:bg-white/20' : 'bg-red-500 text-white shadow-2xl shadow-red-500/40 hover:bg-red-600'}`}
+                  >
+                    {supportedIds.includes(currentModalIssue.id) ? '지지를 철회하시겠습니까?' : '👍 상식에 지지하기'}
+                  </button>
+                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 space-y-3">
+                    <p className="text-[10px] md:text-[11px] font-black text-gray-300 uppercase tracking-[0.16em]">이슈 링크 공유</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copyShareUrl(currentModalIssue.id)}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-share-forward-line text-base" />공유
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => shareToSns('x', currentModalIssue.id, currentModalIssue.title)}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-twitter-x-line text-base" />X
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => shareToSns('facebook', currentModalIssue.id, currentModalIssue.title)}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-facebook-circle-line text-base" />Facebook
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => shareToSns('kakaostory', currentModalIssue.id, currentModalIssue.title)}
+                        className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <i className="ri-chat-3-line text-base" />Kakao
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* 내용 */}

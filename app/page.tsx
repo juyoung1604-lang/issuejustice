@@ -298,30 +298,32 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    const issueParam = new URLSearchParams(window.location.search).get('issue')
+    if (!issueParam) return
+    // URL에 issue 파라미터가 있으면 activeModalId 설정 (DB 로드 전이어도 허용)
+    setActiveModalId(issueParam)
+    document.body.style.overflow = 'hidden'
+  }, [])
+
+  useEffect(() => {
     const syncModalFromUrl = () => {
       const issueParam = new URLSearchParams(window.location.search).get('issue')
       if (!issueParam) {
         closeModal({ syncUrl: false })
         return
       }
-
-      const issueId = issueParam
-      const isValidIssue = [...dbIssues, ...ISSUES].some(issue => issue.id === issueId)
-      if (!isValidIssue) {
-        closeModal({ syncUrl: false })
-        return
+      const isValidIssue = [...dbIssues, ...ISSUES].some(issue => issue.id === issueParam)
+      if (isValidIssue) {
+        openModal(issueParam, { syncUrl: false })
       }
-
-      openModal(issueId, { syncUrl: false })
     }
 
-    syncModalFromUrl()
     window.addEventListener('popstate', syncModalFromUrl)
     return () => {
       window.removeEventListener('popstate', syncModalFromUrl)
       document.body.style.overflow = 'auto'
     }
-  }, [])
+  }, [dbIssues])
 
   const openAttachmentViewer = async (input: IssueAttachmentInput) => {
     const attachment = normalizeAttachment(input)
