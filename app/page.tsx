@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import MyPageDrawer from '@/components/MyPageDrawer'
 import FileViewerModal from '@/components/FileViewerModal'
@@ -443,8 +443,12 @@ export default function HomePage() {
     }
   }
 
+  const snsSharing = useRef(false)
   const shareIssueToSns = (platform: SharePlatform) => {
     if (!currentModalIssue || !issueShareUrl) return
+    if (snsSharing.current) return
+    snsSharing.current = true
+    setTimeout(() => { snsSharing.current = false }, 1000)
 
     const shareText = `[시민신문고] ${currentModalIssue.title}`
     const encodedUrl = encodeURIComponent(issueShareUrl)

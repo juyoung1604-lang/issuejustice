@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import FileViewerModal from '@/components/FileViewerModal'
@@ -191,7 +191,11 @@ function IssuesContent() {
     }
   }
 
+  const snsSharing = useRef(false)
   const shareToSns = (platform: 'x' | 'facebook' | 'kakaostory', id: string, title: string) => {
+    if (snsSharing.current) return
+    snsSharing.current = true
+    setTimeout(() => { snsSharing.current = false }, 1000)
     const url = encodeURIComponent(buildShareUrl(id))
     const text = encodeURIComponent(`[시민신문고] ${title}`)
     const map: Record<string, string> = {
@@ -385,7 +389,7 @@ function IssuesContent() {
                 onClick={() => { setSearchQuery(''); setTagFilter('전체'); setStatusFilter('전체'); setDateFrom(''); setDateTo(''); resetPage(); router.push('/issues') }}
                 className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-black transition-all duration-200 ${!searchQuery && tagFilter === '전체' && statusFilter === '전체' && !dateFrom && !dateTo && !isLatestMode ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400'}`}
               >
-                <i className="ri-search-2-line" /> 전체검색
+                <i className="ri-search-2-line" /> 전체이슈
               </button>
               <Link href="/issues?sort=latest" className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-black transition-all duration-200 ${isLatestMode ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400'}`}>
                 <i className="ri-time-line" /> 최신순
@@ -623,21 +627,21 @@ function IssuesContent() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => shareToSns('x', currentModalIssue.id, currentModalIssue.title)}
+                        onClick={(e) => { e.stopPropagation(); shareToSns('x', currentModalIssue.id, currentModalIssue.title) }}
                         className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <i className="ri-twitter-x-line text-base" />X
                       </button>
                       <button
                         type="button"
-                        onClick={() => shareToSns('facebook', currentModalIssue.id, currentModalIssue.title)}
+                        onClick={(e) => { e.stopPropagation(); shareToSns('facebook', currentModalIssue.id, currentModalIssue.title) }}
                         className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <i className="ri-facebook-circle-line text-base" />Facebook
                       </button>
                       <button
                         type="button"
-                        onClick={() => shareToSns('kakaostory', currentModalIssue.id, currentModalIssue.title)}
+                        onClick={(e) => { e.stopPropagation(); shareToSns('kakaostory', currentModalIssue.id, currentModalIssue.title) }}
                         className="px-2.5 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 text-[11px] md:text-xs font-bold text-gray-100 flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <i className="ri-chat-3-line text-base" />Kakao
