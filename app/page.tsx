@@ -818,7 +818,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-16 md:mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
-          <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2025 Citizen Justice. All Rights Reserved.</p>
+          <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2026 Citizen Justice. All Rights Reserved.</p>
           <div className="flex items-center gap-6">
             <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version 1.0.0-Beta</span>
             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
