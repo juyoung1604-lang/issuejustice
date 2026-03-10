@@ -241,6 +241,59 @@ body{background:var(--bg0);color:var(--t0);font-family:var(--f-sans);font-weight
 
 /* LOADING */
 .loading{padding:24px;font-family:var(--f-mono);font-size:10px;color:var(--t2);display:flex;align-items:center;gap:8px;}
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 1024px) {
+  :root { --sw: 0px; }
+  #sb { 
+    left: -220px; 
+    width: 220px; 
+    transition: left .3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0,0,0,.5);
+  }
+  #sb.open { left: 0; }
+  #main { margin-left: 0; padding: 16px; }
+  .tb-brand { width: auto; border-right: none; }
+  .tb-mid, .tb-right .tb-divider, .admin-chip .admin-rl { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .g-main, .g2 { grid-template-columns: 1fr; }
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ph { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ph-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ph-actions .btn { justify-content: center; width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-num { font-size: 28px; }
+  .tb-brand-name { display: none; }
+  .tb-right { padding-right: 10px; }
+}
+
+.menu-trigger {
+  width: 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--t1);
+  border-right: 1px solid var(--bdr2);
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+}
+.sb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(2px);
+  z-index: 95;
+  display: none;
+}
+.sb-overlay.show { display: block; }
 `
 
 const COMMENTS = [
@@ -285,6 +338,7 @@ export default function AdminPage() {
   const [uptime, setUptime] = useState('00:00:00')
   const [dashDate, setDashDate] = useState('')
   const [toasts, setToasts] = useState<ToastMsg[]>([])
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   // Real data from Supabase
   const [pendingList, setPendingList] = useState<Issue[]>([])
@@ -505,6 +559,9 @@ export default function AdminPage() {
 
       {/* TOPBAR */}
       <div id="tb">
+        <button className="menu-trigger" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          {isMenuOpen ? '✕' : '☰'}
+        </button>
         <div className="tb-brand">
           <div className="tb-mark"><div className="tb-mark-glow" />관</div>
           <div className="tb-brand-txt">
@@ -533,13 +590,16 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* MOBILE MENU OVERLAY */}
+      <div className={`sb-overlay${isMenuOpen ? ' show' : ''}`} onClick={() => setIsMenuOpen(false)} />
+
       {/* SIDEBAR */}
-      <nav id="sb">
+      <nav id="sb" className={isMenuOpen ? 'open' : ''}>
         {NAV.map(g => (
           <div key={g.group} className="nav-grp">
             <div className="nav-grp-lbl">{g.group}</div>
             {g.items.map((item: any) => (
-              <button key={item.id} className={`nav-btn${tab === item.id ? ' active' : ''}`} onClick={() => setTab(item.id as Tab)}>
+              <button key={item.id} className={`nav-btn${tab === item.id ? ' active' : ''}`} onClick={() => { setTab(item.id as Tab); setIsMenuOpen(false); }}>
                 <span className="nav-ico">{item.ico}</span>{item.label}
                 {item.badge > 0 && <span className={`nav-badge ${item.bc}`}>{item.badge}</span>}
               </button>
@@ -663,28 +723,30 @@ export default function AdminPage() {
               <div className="empty"><div className="empty-icon">✅</div>승인 대기 이슈가 없습니다</div>
             ) : (
               <div className="panel">
-                <table className="tbl">
-                  <thead><tr><th>ID</th><th>제목 / 요약</th><th>유형</th><th>분야</th><th>지역</th><th>제출일</th><th>액션</th></tr></thead>
-                  <tbody>
-                    {pendingList.map(p => (
-                      <tr key={p.id} onClick={() => setDetailIssue(p)}>
-                        <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(p.id)}</td>
-                        <td><div className="tt">{p.title}</div><div className="ts">{p.summary || p.overview?.slice(0,80)}</div></td>
-                        <td><span className="tag">{p.enforcement_type}</span></td>
-                        <td><span className="tag">{p.field_category}</span></td>
-                        <td className="tm">{p.region}</td>
-                        <td className="tm">{formatDate(p.created_at)}</td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
-                            <button className="btn btn-t sm" onClick={() => approveIssue(p.id)}>✓ 승인</button>
-                            <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:p.id,title:p.title,status:p.status}); setSelSt('') }}>상태</button>
-                            <button className="btn btn-r sm" onClick={() => { setRejectIssue({id:p.id,title:p.title}); setRejectReason('') }}>✕</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead><tr><th>ID</th><th>제목 / 요약</th><th>유형</th><th>분야</th><th>지역</th><th>제출일</th><th>액션</th></tr></thead>
+                    <tbody>
+                      {pendingList.map(p => (
+                        <tr key={p.id} onClick={() => setDetailIssue(p)}>
+                          <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(p.id)}</td>
+                          <td><div className="tt">{p.title}</div><div className="ts">{p.summary || p.overview?.slice(0,80)}</div></td>
+                          <td><span className="tag">{p.enforcement_type}</span></td>
+                          <td><span className="tag">{p.field_category}</span></td>
+                          <td className="tm">{p.region}</td>
+                          <td className="tm">{formatDate(p.created_at)}</td>
+                          <td onClick={e => e.stopPropagation()}>
+                            <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                              <button className="btn btn-t sm" onClick={() => approveIssue(p.id)}>✓ 승인</button>
+                              <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:p.id,title:p.title,status:p.status}); setSelSt('') }}>상태</button>
+                              <button className="btn btn-r sm" onClick={() => { setRejectIssue({id:p.id,title:p.title}); setRejectReason('') }}>✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -722,25 +784,27 @@ export default function AdminPage() {
               <div className="empty"><div className="empty-icon">🔍</div>조건에 맞는 이슈가 없습니다</div>
             ) : (
               <div className="panel">
-                <table className="tbl">
-                  <thead><tr><th>ID</th><th>제목</th><th>상태</th><th>분야</th><th>지역</th><th>추천</th><th>공개</th><th>액션</th></tr></thead>
-                  <tbody>
-                    {filteredIssues.map(issue => (
-                      <tr key={issue.id} onClick={() => setDetailIssue(issue)}>
-                        <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(issue.id)}</td>
-                        <td><div className="tt">{issue.title}</div></td>
-                        <td><span className={`badge b-${issue.status}`}>{issue.status}</span></td>
-                        <td><span className="tag">{issue.field_category}</span></td>
-                        <td className="tm">{issue.region}</td>
-                        <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
-                        <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:issue.is_published?'var(--green)':'var(--red)'}}>{issue.is_published?'● 공개':'○ 비공개'}</span></td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>상태변경</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead><tr><th>ID</th><th>제목</th><th>상태</th><th>분야</th><th>지역</th><th>추천</th><th>공개</th><th>액션</th></tr></thead>
+                    <tbody>
+                      {filteredIssues.map(issue => (
+                        <tr key={issue.id} onClick={() => setDetailIssue(issue)}>
+                          <td className="tm" style={{color:'var(--t2)',fontSize:'9px'}}>{shortId(issue.id)}</td>
+                          <td><div className="tt">{issue.title}</div></td>
+                          <td><span className={`badge b-${issue.status}`}>{issue.status}</span></td>
+                          <td><span className="tag">{issue.field_category}</span></td>
+                          <td className="tm">{issue.region}</td>
+                          <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
+                          <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:issue.is_published?'var(--green)':'var(--red)'}}>{issue.is_published?'● 공개':'○ 비공개'}</span></td>
+                          <td onClick={e => e.stopPropagation()}>
+                            <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>상태변경</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -755,17 +819,19 @@ export default function AdminPage() {
               return items.length > 0 ? (
                 <div key={st} className="panel mb16">
                   <div className="panel-head"><span className={`badge b-${st}`}>{st}</span><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{items.length}건</span></div>
-                  <table className="tbl"><thead><tr><th>제목</th><th>지역</th><th>추천</th><th>등록일</th><th>변경</th></tr></thead><tbody>
-                    {items.map(issue => (
-                      <tr key={issue.id} onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>
-                        <td><div className="tt">{issue.title}</div></td>
-                        <td className="tm">{issue.region}</td>
-                        <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
-                        <td className="tm">{formatDate(issue.created_at)}</td>
-                        <td><button className="btn btn-g sm" onClick={e=>{e.stopPropagation();setStatusIssue({id:issue.id,title:issue.title,status:issue.status});setSelSt('')}}>변경</button></td>
-                      </tr>
-                    ))}
-                  </tbody></table>
+                  <div className="tbl-wrap">
+                    <table className="tbl"><thead><tr><th>제목</th><th>지역</th><th>추천</th><th>등록일</th><th>변경</th></tr></thead><tbody>
+                      {items.map(issue => (
+                        <tr key={issue.id} onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>
+                          <td><div className="tt">{issue.title}</div></td>
+                          <td className="tm">{issue.region}</td>
+                          <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
+                          <td className="tm">{formatDate(issue.created_at)}</td>
+                          <td><button className="btn btn-g sm" onClick={e=>{e.stopPropagation();setStatusIssue({id:issue.id,title:issue.title,status:issue.status});setSelSt('')}}>변경</button></td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  </div>
                 </div>
               ) : null
             })}
@@ -778,28 +844,30 @@ export default function AdminPage() {
           <div className="tab-content">
             <div className="ph"><div><div className="ph-eyebrow">Content</div><div className="ph-title">댓글 관리</div><div className="ph-sub">최근 댓글 및 신고 댓글을 검토합니다.</div></div></div>
             <div className="panel">
-              <table className="tbl">
-                <thead><tr><th>유형</th><th>내용</th><th>작성자</th><th>이슈</th><th>시간</th><th>액션</th></tr></thead>
-                <tbody>
-                  {commentList.map((c, i) => {
-                    const typeColor: Record<string,string> = {'사실보완':'var(--teal)','법률의견':'var(--blue)','일반':'var(--t1)'}
-                    return (
-                      <tr key={i} style={c.flagged?{background:'rgba(224,72,72,.04)'}:{}}>
-                        <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:typeColor[c.type]||'var(--t1)'}}>{c.type}</span></td>
-                        <td style={{maxWidth:'270px'}}><div style={{fontSize:'11px',color:'var(--t0)',lineHeight:1.5,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.content}</div></td>
-                        <td className="tm" style={{color:'var(--t2)'}}>{c.author}</td>
-                        <td className="tm" style={{color:'var(--blue)'}}>{c.issue}</td>
-                        <td className="tm">{c.time}</td>
-                        <td onClick={e => e.stopPropagation()}>
-                          {c.flagged
-                            ? <button className="btn btn-r sm" disabled={hiddenComments.includes(i)} onClick={() => hideComment(i)}>{hiddenComments.includes(i)?'숨김완료':'숨김'}</button>
-                            : <button className="btn btn-g sm">유지</button>}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <div className="tbl-wrap">
+                <table className="tbl">
+                  <thead><tr><th>유형</th><th>내용</th><th>작성자</th><th>이슈</th><th>시간</th><th>액션</th></tr></thead>
+                  <tbody>
+                    {commentList.map((c, i) => {
+                      const typeColor: Record<string,string> = {'사실보완':'var(--teal)','법률의견':'var(--blue)','일반':'var(--t1)'}
+                      return (
+                        <tr key={i} style={c.flagged?{background:'rgba(224,72,72,.04)'}:{}}>
+                          <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:typeColor[c.type]||'var(--t1)'}}>{c.type}</span></td>
+                          <td style={{maxWidth:'270px'}}><div style={{fontSize:'11px',color:'var(--t0)',lineHeight:1.5,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.content}</div></td>
+                          <td className="tm" style={{color:'var(--t2)'}}>{c.author}</td>
+                          <td className="tm" style={{color:'var(--blue)'}}>{c.issue}</td>
+                          <td className="tm">{c.time}</td>
+                          <td onClick={e => e.stopPropagation()}>
+                            {c.flagged
+                              ? <button className="btn btn-r sm" disabled={hiddenComments.includes(i)} onClick={() => hideComment(i)}>{hiddenComments.includes(i)?'숨김완료':'숨김'}</button>
+                              : <button className="btn btn-g sm">유지</button>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
