@@ -359,19 +359,19 @@ export default function HomePage() {
       {/* 🚀 히어로 섹션 (역동적인 타이포그래피) */}
       <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-8 fade-in text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase mx-auto lg:mx-0">
+          <div className="space-y-8 fade-in text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase">
               <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> 시민 공론 플랫폼
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-8xl font-black leading-[1.1] tracking-tighter text-gray-900">
               상식을<br />기록하면<br /><span className="text-red-500">세상이 바뀐다</span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-lg font-medium mx-auto lg:mx-0">
+            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-lg font-medium">
               불합리한 법집행 사례를 증거와 구조로 기록하고,<br className="hidden sm:block" />
               시민의 지지와 공감으로 공론화합니다. 데이터로 상식을 시각화합니다.
             </p>
             
-            <div className="flex flex-wrap justify-center lg:justify-start gap-6 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
+            <div className="flex flex-wrap justify-start gap-6 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
               {[["등록 이슈", STATS.totalIssues], ["누적 공감", "18.4k"], ["해결 사례", STATS.resolvedCases]].map(([label, val]) => (
                 <div key={label as string}>
                   <div className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
@@ -380,33 +380,33 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button onClick={() => scrollToSection("register")} className="px-6 py-3.5 sm:px-8 sm:py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-start">
+              <button onClick={() => scrollToSection("register")} className="px-5 py-3.5 sm:px-8 sm:py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-sm sm:text-lg active:scale-95">
                 지금 이슈 제보하기 <i className="ri-arrow-right-line ml-2" />
               </button>
-              <button onClick={() => scrollToSection("issues")} className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95">
+              <button onClick={() => scrollToSection("issues")} className="px-5 py-3.5 sm:px-8 sm:py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-sm sm:text-lg active:scale-95">
                 실시간 이슈 보기
               </button>
             </div>
           </div>
 
           <div className="relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
-            <div className="relative space-y-3 sm:space-y-4 bg-white/40 backdrop-blur-xl p-4 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
+            <div className="relative space-y-2.5 sm:space-y-4 bg-white/40 backdrop-blur-xl p-3 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
               {ISSUES.slice(0, 4).map((issue, i) => (
-                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-3 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
-                  <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-xs sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
+                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-2.5 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
+                  <div className={`flex-shrink-0 w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-[10px] sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs sm:text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
+                    <div className="text-[11px] sm:text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                      <span className="text-[8px] sm:text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
                       <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                      <span className="text-[9px] sm:text-[10px] font-bold text-gray-400">{issue.region}</span>
+                      <span className="text-[8px] sm:text-[10px] font-bold text-gray-400">{issue.region}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs sm:text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-[11px] sm:text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
                     <div className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase">지지수</div>
                   </div>
                 </div>
