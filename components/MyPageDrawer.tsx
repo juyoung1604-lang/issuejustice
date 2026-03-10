@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
 
 interface MyIssue {
   id: string
@@ -27,6 +25,8 @@ interface Props {
 
 type Screen = 'list' | 'detail' | 'login-email' | 'login-otp'
 
+const VERIFIED_EMAIL_KEY = 'sinmungo_verified_email'
+
 const STATUS_STYLE: Record<string, string> = {
   '접수됨': 'bg-amber-50 text-amber-700 border-amber-200',
   '검증중': 'bg-blue-50 text-blue-700 border-blue-200',
@@ -36,7 +36,6 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 export default function MyPageDrawer({ open, onClose }: Props) {
-  const { user, submitterToken, signOut, loading: authLoading } = useAuth()
   const [screen, setScreen] = useState<Screen>('list')
   const [issues, setIssues] = useState<MyIssue[]>([])
   const [loading, setLoading] = useState(false)
@@ -49,22 +48,43 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [withdrawConfirm, setWithdrawConfirm] = useState(false)
 
+  // Verified email from custom OTP
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null)
+
   // Inline login state
   const [loginEmail, setLoginEmail] = useState('')
   const [loginOtp, setLoginOtp] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
 
+  // Load verified email from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(VERIFIED_EMAIL_KEY)
+      if (saved) setVerifiedEmail(saved)
+    }
+  }, [])
+
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(''), 3000)
   }
 
-  const fetchIssues = useCallback(async () => {
-    if (!submitterToken) return
+  // Read submitter token from localStorage
+  const submitterToken = typeof window !== 'undefined'
+    ? localStorage.getItem('sinmungo_device_token') || ''
+    : ''
+
+  const fetchIssues = useCallback(async (emailOverride?: string) => {
+    const email = emailOverride ?? verifiedEmail
+    const token = submitterToken
+    if (!email && !token) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/my-issues?token=${submitterToken}`)
+      const url = email
+        ? `/api/my-issues?email=${encodeURIComponent(email)}`
+        : `/api/my-issues?token=${token}`
+      const res = await fetch(url)
       const json = await res.json()
       if (json.data) setIssues(json.data)
     } catch {
@@ -72,23 +92,23 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [submitterToken])
+  }, [verifiedEmail, submitterToken])
 
   useEffect(() => {
     if (open) {
-      if (!authLoading) {
-        if (user) {
-          fetchIssues()
-          setScreen('list')
-        } else {
-          setScreen('login-email')
-          setLoginEmail('')
-          setLoginOtp('')
-          setLoginError('')
-        }
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(VERIFIED_EMAIL_KEY) : null
+      if (saved) {
+        setVerifiedEmail(saved)
+        setScreen('list')
+        fetchIssues(saved)
+      } else {
+        setScreen('login-email')
+        setLoginEmail('')
+        setLoginOtp('')
+        setLoginError('')
       }
     }
-  }, [open, user, authLoading, fetchIssues])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDetail = (issue: MyIssue) => {
     setSelectedIssue(issue)
@@ -107,7 +127,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: submitterToken, action: 'supplement', data: { note: supplementText } }),
+        body: JSON.stringify({ token: submitterToken, email: verifiedEmail, action: 'supplement', data: { note: supplementText } }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -134,7 +154,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: submitterToken, action: 'edit', data: { overview: editOverview, sense: editSense } }),
+        body: JSON.stringify({ token: submitterToken, email: verifiedEmail, action: 'edit', data: { overview: editOverview, sense: editSense } }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -158,7 +178,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: submitterToken, action: 'withdraw', data: {} }),
+        body: JSON.stringify({ token: submitterToken, email: verifiedEmail, action: 'withdraw', data: {} }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -187,11 +207,13 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     if (!loginEmail.trim()) return
     setLoginLoading(true)
     try {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email: loginEmail.trim(),
-        options: { shouldCreateUser: true },
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim() }),
       })
-      if (err) throw err
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '이메일 발송에 실패했습니다.')
       setScreen('login-otp')
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : '이메일 발송에 실패했습니다.')
@@ -206,13 +228,19 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     if (loginOtp.length < 6) return
     setLoginLoading(true)
     try {
-      const { error: err } = await supabase.auth.verifyOtp({
-        email: loginEmail.trim(),
-        token: loginOtp.trim(),
-        type: 'email',
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim(), code: loginOtp.trim() }),
       })
-      if (err) throw err
-      // Auth state change will trigger useEffect → fetchIssues + screen = 'list'
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '인증 코드가 올바르지 않습니다.')
+      // Save verified email to localStorage
+      const email = loginEmail.trim().toLowerCase()
+      localStorage.setItem(VERIFIED_EMAIL_KEY, email)
+      setVerifiedEmail(email)
+      setScreen('list')
+      fetchIssues(email)
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : '인증 코드가 올바르지 않습니다.')
     } finally {
@@ -220,9 +248,21 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     }
   }
 
+  const handleSignOut = () => {
+    localStorage.removeItem(VERIFIED_EMAIL_KEY)
+    setVerifiedEmail(null)
+    setIssues([])
+    setScreen('login-email')
+    setLoginEmail('')
+    setLoginOtp('')
+    setLoginError('')
+  }
+
   const canEdit = selectedIssue?.status === '접수됨' && !selectedIssue?.is_published
   const canWithdraw = selectedIssue && !['종결'].includes(selectedIssue.status) && !selectedIssue.withdrawal_requested
   const canSupplement = selectedIssue && selectedIssue.status !== '종결'
+
+  const isLoggedIn = !!verifiedEmail
 
   if (!open) return null
 
@@ -253,13 +293,13 @@ export default function MyPageDrawer({ open, onClose }: Props) {
               </h2>
               {screen === 'list' && (
                 <div className="flex items-center gap-2 mt-0.5">
-                  {!authLoading && user ? (
+                  {isLoggedIn ? (
                     <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest flex items-center gap-1">
-                      <i className="ri-shield-check-fill" /> {user.email}
+                      <i className="ri-shield-check-fill" /> {verifiedEmail}
                     </p>
                   ) : (
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                      디바이스 · {submitterToken.slice(0, 8).toUpperCase()}
+                      이메일 인증이 필요합니다
                     </p>
                   )}
                 </div>
@@ -273,9 +313,9 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!authLoading && user && (
+            {isLoggedIn && (
               <button
-                onClick={signOut}
+                onClick={handleSignOut}
                 title="로그아웃"
                 className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-500 text-gray-400 transition-all"
               >
@@ -392,22 +432,6 @@ export default function MyPageDrawer({ open, onClose }: Props) {
 
           {screen === 'list' && (
             <div className="p-6 space-y-3">
-              {/* 이메일 로그인 유도 (디바이스 토큰 사용중) */}
-              {!authLoading && !user && (
-                <button
-                  onClick={() => { setLoginEmail(''); setLoginOtp(''); setLoginError(''); setScreen('login-email') }}
-                  className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl text-left group hover:from-red-600 hover:to-red-500 transition-all duration-300"
-                >
-                  <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl shrink-0">
-                    <i className="ri-mail-lock-line text-white text-lg" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-white">이메일로 로그인하면</p>
-                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">어떤 기기에서도 내 제보를 확인할 수 있습니다</p>
-                  </div>
-                  <i className="ri-arrow-right-line text-gray-500 group-hover:text-white transition-colors" />
-                </button>
-              )}
 
               {loading && (
                 <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-4">
@@ -421,8 +445,8 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                     <i className="ri-inbox-line" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-500">이 기기에서 제보한 이슈가 없습니다.</p>
-                    <p className="text-xs text-gray-400 mt-1">제보하기 섹션에서 이슈를 등록해 주세요.</p>
+                    <p className="text-sm font-bold text-gray-500">이 이메일로 제보한 이슈가 없습니다.</p>
+                    <p className="text-xs text-gray-400 mt-1">제보 시 동일 이메일을 입력해야 확인 가능합니다.</p>
                   </div>
                 </div>
               )}

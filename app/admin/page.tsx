@@ -379,6 +379,37 @@ export default function AdminPage() {
   const [dbHealth, setDbHealth] = useState<DbHealth | null>(null)
   const [healthLoading, setHealthLoading] = useState(false)
 
+  // Email test
+  const [testEmailTo, setTestEmailTo] = useState('')
+  const [testEmailLoading, setTestEmailLoading] = useState(false)
+  const [testEmailResult, setTestEmailResult] = useState<{ok?: boolean; error?: string} | null>(null)
+
+  const sendTestEmail = async () => {
+    if (!testEmailTo.trim()) return
+    setTestEmailLoading(true)
+    setTestEmailResult(null)
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testEmailTo.trim() }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setTestEmailResult({ ok: true })
+        toast('테스트 이메일이 발송되었습니다.', 'ok')
+      } else {
+        setTestEmailResult({ error: json.error || '발송 실패' })
+        toast(json.error || '이메일 발송 실패', 'err')
+      }
+    } catch {
+      setTestEmailResult({ error: '네트워크 오류' })
+      toast('네트워크 오류', 'err')
+    } finally {
+      setTestEmailLoading(false)
+    }
+  }
+
   const checkHealth = async () => {
     setHealthLoading(true)
     try {
@@ -986,6 +1017,43 @@ export default function AdminPage() {
                   <div className="panel-body">
                     <div className="fg"><label className="flbl">관리자 이메일</label><input className="finput" type="email" defaultValue="admin@sinmungo.kr" /></div>
                     <div className="fg"><label className="flbl">알림 임계값 (추천 수)</label><input className="finput" type="number" defaultValue={500} placeholder="이 수치 이상 시 알림" /></div>
+                  </div>
+                </div>
+                <div className="panel" style={{marginTop:'16px'}}>
+                  <div className="panel-head"><span className="panel-title">Gmail 메일 발송 테스트</span></div>
+                  <div className="panel-body">
+                    <p style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)',marginBottom:'14px',lineHeight:1.8}}>
+                      GMAIL_USER / GMAIL_APP_PASSWORD 환경변수 설정 후<br/>실제 OTP 이메일 발송을 테스트합니다.
+                    </p>
+                    <div className="fg">
+                      <label className="flbl">수신 이메일 주소</label>
+                      <input
+                        className="finput"
+                        type="email"
+                        placeholder="test@example.com"
+                        value={testEmailTo}
+                        onChange={e => setTestEmailTo(e.target.value)}
+                      />
+                    </div>
+                    {testEmailResult && (
+                      <div style={{
+                        fontFamily:'var(--f-mono)',fontSize:'11px',padding:'10px 14px',
+                        borderLeft: `3px solid ${testEmailResult.ok ? 'var(--green)' : 'var(--red)'}`,
+                        background: testEmailResult.ok ? 'var(--greenD)' : 'var(--redD)',
+                        color: testEmailResult.ok ? 'var(--green)' : 'var(--red)',
+                        marginBottom:'14px',
+                      }}>
+                        {testEmailResult.ok ? '✓ 발송 완료! 받은편지함을 확인하세요.' : `✕ ${testEmailResult.error}`}
+                      </div>
+                    )}
+                    <button
+                      className="btn btn-t sm"
+                      style={{width:'100%',justifyContent:'center'}}
+                      onClick={sendTestEmail}
+                      disabled={testEmailLoading || !testEmailTo.trim()}
+                    >
+                      {testEmailLoading ? '⟳ 발송 중...' : '✉ 테스트 이메일 발송'}
+                    </button>
                   </div>
                 </div>
               </div>

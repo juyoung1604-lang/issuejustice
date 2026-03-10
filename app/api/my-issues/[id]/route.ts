@@ -7,19 +7,25 @@ export async function PATCH(
 ) {
   const { id } = await params
   const body = await request.json()
-  const { token, action, data: payload } = body
+  const { token, email, action, data: payload } = body
 
-  if (!token || !action) {
-    return NextResponse.json({ error: '토큰과 액션이 필요합니다.' }, { status: 400 })
+  if (!action || (!token && !email)) {
+    return NextResponse.json({ error: '토큰 또는 이메일과 액션이 필요합니다.' }, { status: 400 })
   }
 
-  // Verify ownership
-  const { data: issue, error: fetchError } = await supabaseAdmin
+  // Verify ownership — support both submitter_token and submitter_email
+  let query = supabaseAdmin
     .from('issues')
-    .select('id, status, is_published, supplement_note, submitter_token')
+    .select('id, status, is_published, supplement_note, submitter_token, submitter_email')
     .eq('id', id)
-    .eq('submitter_token', token)
-    .single()
+
+  if (email) {
+    query = query.eq('submitter_email', email.toLowerCase().trim())
+  } else {
+    query = query.eq('submitter_token', token)
+  }
+
+  const { data: issue, error: fetchError } = await query.single()
 
   if (fetchError || !issue) {
     return NextResponse.json({ error: '이슈를 찾을 수 없거나 권한이 없습니다.' }, { status: 403 })

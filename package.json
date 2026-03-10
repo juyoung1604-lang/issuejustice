@@ -5,10 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "next dev --webpack",
-    "dev:turbo": "next dev",
+    "dev": "node scripts/dev-on-3000.mjs --webpack",
+    "dev:turbo": "node scripts/dev-on-3000.mjs --turbo",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "next lint"
   },
   "repository": {
@@ -37,6 +37,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.0",
-    "lucide-react": "^0.577.0"
+    "@types/nodemailer": "^7.0.11",
+    "lucide-react": "^0.577.0",
+    "nodemailer": "^8.0.2"
   }
 }
