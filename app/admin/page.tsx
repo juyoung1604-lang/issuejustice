@@ -310,7 +310,7 @@ const REPORTS_DATA = [
   {id:'r3',type:'비방·욕설',title:'교통 단속 민원',reason:'댓글에 특정인에 대한 욕설이 포함되어 있어 신고합니다.',reporter:'user_h4t3',time:'5시간 전'},
 ]
 
-type Tab = 'dashboard'|'pending'|'all'|'statusmgmt'|'files'|'comments'|'reports'|'analytics'|'settings'
+type Tab = 'dashboard'|'pending'|'all'|'statusmgmt'|'files'|'comments'|'reports'|'analytics'|'settings'|'advisory'
 
 interface Issue {
   id: string
@@ -327,6 +327,20 @@ interface Issue {
   problem: string
   sense: string
   requests: string[]
+  created_at: string
+}
+
+interface AdvisoryApplication {
+  id: string
+  type: '법률자문단' | '시민배심원'
+  name: string
+  email: string
+  phone: string | null
+  profession: string
+  experience: string
+  motivation: string
+  status: 'pending' | 'approved' | 'rejected'
+  admin_note: string | null
   created_at: string
 }
 
@@ -369,6 +383,14 @@ export default function AdminPage() {
   const [bannedWords, setBannedWords] = useState<string[]>([])
   const [newFilterWord, setNewFilterWord] = useState('')
   const [filterSaving, setFilterSaving] = useState(false)
+
+  // 자문/배심원 신청
+  const [advisoryList, setAdvisoryList] = useState<AdvisoryApplication[]>([])
+  const [advisoryLoading, setAdvisoryLoading] = useState(false)
+  const [advisoryTypeFilter, setAdvisoryTypeFilter] = useState('')
+  const [advisoryStatusFilter, setAdvisoryStatusFilter] = useState('')
+  const [advisoryDetail, setAdvisoryDetail] = useState<AdvisoryApplication | null>(null)
+  const [advisoryNote, setAdvisoryNote] = useState('')
 
   const loadSampleSetting = async () => {
     try {
@@ -447,6 +469,11 @@ export default function AdminPage() {
     counts: Record<string, number | string>
     checkedAt: string
     envVars: Record<string, boolean>
+    storage: {
+      buckets: Array<{ name: string; files: number; bytes: number }>
+      totalBytes: number
+      error?: string
+    }
   }
   const [dbHealth, setDbHealth] = useState<DbHealth | null>(null)
   const [healthLoading, setHealthLoading] = useState(false)
@@ -514,6 +541,37 @@ export default function AdminPage() {
     setIsLoading(true)
     Promise.all([loadPending(), loadAll()]).finally(() => setIsLoading(false))
   }, [loadPending, loadAll])
+
+  const loadAdvisory = useCallback(async (typeF?: string, statusF?: string) => {
+    setAdvisoryLoading(true)
+    try {
+      const params = new URLSearchParams()
+      const t = typeF !== undefined ? typeF : advisoryTypeFilter
+      const s = statusF !== undefined ? statusF : advisoryStatusFilter
+      if (t) params.set('type', t)
+      if (s) params.set('status', s)
+      const res = await fetch(`/api/advisory?${params.toString()}`)
+      const json = await res.json()
+      if (json.data) setAdvisoryList(json.data)
+    } catch { /* ignore */ } finally {
+      setAdvisoryLoading(false)
+    }
+  }, [advisoryTypeFilter, advisoryStatusFilter])
+
+  const updateAdvisoryStatus = async (id: string, status: string, admin_note: string) => {
+    const res = await fetch('/api/advisory', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, admin_note }),
+    })
+    if (res.ok) {
+      setAdvisoryList(l => l.map(x => x.id === id ? { ...x, status: status as AdvisoryApplication['status'], admin_note } : x))
+      toast(`상태를 [${status}]로 변경했습니다.`, 'ok')
+      setAdvisoryDetail(null)
+    } else {
+      toast('상태 변경 중 오류가 발생했습니다.', 'err')
+    }
+  }
 
   const toast = (msg: string, type = '') => {
     const id = Date.now()
@@ -664,6 +722,7 @@ export default function AdminPage() {
     { group:'콘텐츠', items:[
       {id:'comments',ico:'💬',label:'댓글 관리'},
       {id:'reports',ico:'⚑',label:'신고 처리',badge:reportList.length,bc:'nb-r'},
+      {id:'advisory',ico:'⚖',label:'자문/배심원 신청',badge:advisoryList.filter(x=>x.status==='pending').length,bc:'nb-a'},
     ]},
     { group:'분석·시스템', items:[
       {id:'analytics',ico:'▦',label:'통계·분석'},
@@ -1253,6 +1312,7 @@ export default function AdminPage() {
                   <div className="loading">⟳ Supabase 연결 확인 중...</div>
                 )}
                 {dbHealth && !healthLoading && (
+                  <>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'16px'}}>
 
                     {/* Supabase 연결 */}
@@ -1320,13 +1380,227 @@ export default function AdminPage() {
                     </div>
 
                   </div>
+
+                  {/* 스토리지 용량 — 전체 너비 */}
+                  {(() => {
+                    const FREE_STORAGE_BYTES = 1 * 1024 * 1024 * 1024 // 1GB (Supabase Free Tier)
+                    const fmt = (bytes: number) => {
+                      if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+                      if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+                      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+                      return `${bytes} B`
+                    }
+                    const used = dbHealth.storage?.totalBytes ?? 0
+                    const pct = Math.min((used / FREE_STORAGE_BYTES) * 100, 100)
+                    const barColor = pct < 60 ? 'var(--green)' : pct < 85 ? 'var(--amber)' : 'var(--red)'
+                    return (
+                      <div style={{marginTop:'16px',borderTop:'1px solid var(--bdr2)',paddingTop:'16px'}}>
+                        <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'12px'}}>Storage 용량</div>
+                        {dbHealth.storage?.error ? (
+                          <div style={{color:'var(--red)',fontFamily:'var(--f-mono)',fontSize:'11px'}}>✕ 스토리지 조회 실패: {dbHealth.storage.error}</div>
+                        ) : (
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',alignItems:'start'}}>
+                            {/* 전체 사용량 프로그레스바 */}
+                            <div>
+                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'6px'}}>
+                                <span style={{fontSize:'11px',color:'var(--t1)'}}>전체 스토리지 사용량</span>
+                                <span style={{fontFamily:'var(--f-mono)',fontSize:'11px',color: barColor}}>
+                                  {fmt(used)} / 1 GB
+                                </span>
+                              </div>
+                              <div style={{background:'var(--bg3)',borderRadius:'4px',height:'6px',overflow:'hidden'}}>
+                                <div style={{width:`${pct}%`,height:'100%',background: barColor,borderRadius:'4px',transition:'width 0.4s ease'}} />
+                              </div>
+                              <div style={{display:'flex',justifyContent:'space-between',marginTop:'4px'}}>
+                                <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>
+                                  {pct.toFixed(1)}% 사용
+                                </span>
+                                <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>
+                                  잔여 {fmt(FREE_STORAGE_BYTES - used)}
+                                </span>
+                              </div>
+                            </div>
+                            {/* 버킷별 현황 */}
+                            <div>
+                              {(dbHealth.storage?.buckets ?? []).length === 0 ? (
+                                <div style={{color:'var(--t3)',fontSize:'11px'}}>버킷 없음</div>
+                              ) : (
+                                (dbHealth.storage?.buckets ?? []).map(b => (
+                                  <div key={b.name} className="info-row">
+                                    <span style={{fontFamily:'var(--f-mono)',fontSize:'10px'}}>🗂 {b.name}</span>
+                                    <span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t1)'}}>
+                                      {fmt(b.bytes)} · {b.files}개
+                                    </span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                  </>
                 )}
               </div>
             </div>
           </div>
         )}
 
+        {/* ADVISORY */}
+        {tab === 'advisory' && (
+          <div className="tab-content" ref={el => { if (el) loadAdvisory() }}>
+            <div className="ph">
+              <div>
+                <div className="ph-eyebrow">Content</div>
+                <div className="ph-title">자문/배심원 신청</div>
+                <div className="ph-sub">법률자문단 및 시민배심원 신청 목록</div>
+              </div>
+              <div className="ph-actions">
+                <button className="btn btn-t sm" onClick={() => loadAdvisory()}>⟳ 새로고침</button>
+              </div>
+            </div>
+
+            {/* 필터 */}
+            <div style={{display:'flex',gap:'8px',marginBottom:'16px',flexWrap:'wrap'}}>
+              <select
+                className="fselect"
+                style={{width:'auto',minWidth:'130px'}}
+                value={advisoryTypeFilter}
+                onChange={e => { const v = e.target.value; setAdvisoryTypeFilter(v); loadAdvisory(v, advisoryStatusFilter) }}
+              >
+                <option value="">전체 유형</option>
+                <option value="법률자문단">법률자문단</option>
+                <option value="시민배심원">시민배심원</option>
+              </select>
+              <select
+                className="fselect"
+                style={{width:'auto',minWidth:'130px'}}
+                value={advisoryStatusFilter}
+                onChange={e => { const v = e.target.value; setAdvisoryStatusFilter(v); loadAdvisory(advisoryTypeFilter, v) }}
+              >
+                <option value="">전체 상태</option>
+                <option value="pending">검토 중</option>
+                <option value="approved">승인</option>
+                <option value="rejected">거절</option>
+              </select>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head">
+                <span className="panel-title">신청 목록 ({advisoryList.length}건)</span>
+              </div>
+              {advisoryLoading ? (
+                <div className="loading">⟳ 불러오는 중...</div>
+              ) : advisoryList.length === 0 ? (
+                <div className="empty"><div className="empty-icon">⚖</div>신청 내역이 없습니다.</div>
+              ) : (
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>유형</th>
+                        <th>이름</th>
+                        <th>이메일</th>
+                        <th>직업/전공</th>
+                        <th>상태</th>
+                        <th>신청일</th>
+                        <th>관리</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {advisoryList.map(app => (
+                        <tr key={app.id} onClick={() => { setAdvisoryDetail(app); setAdvisoryNote(app.admin_note || '') }}>
+                          <td>
+                            <span style={{
+                              fontFamily:'var(--f-mono)',fontSize:'10px',fontWeight:700,padding:'2px 8px',
+                              background: app.type === '법률자문단' ? 'var(--blueD)' : 'var(--tealD)',
+                              border: `1px solid ${app.type === '법률자문단' ? 'rgba(58,138,212,.3)' : 'rgba(0,212,168,.3)'}`,
+                              color: app.type === '법률자문단' ? 'var(--blue)' : 'var(--teal)',
+                              borderRadius:'2px'
+                            }}>
+                              {app.type}
+                            </span>
+                          </td>
+                          <td className="tt">{app.name}</td>
+                          <td><span className="tm">{app.email}</span></td>
+                          <td className="ts">{app.profession}</td>
+                          <td>
+                            <span style={{
+                              fontFamily:'var(--f-mono)',fontSize:'10px',fontWeight:700,padding:'2px 8px',borderRadius:'2px',
+                              background: app.status === 'approved' ? 'var(--greenD)' : app.status === 'rejected' ? 'var(--redD)' : 'var(--amberD)',
+                              border: `1px solid ${app.status === 'approved' ? 'rgba(46,201,138,.3)' : app.status === 'rejected' ? 'rgba(224,72,72,.3)' : 'rgba(240,165,0,.3)'}`,
+                              color: app.status === 'approved' ? 'var(--green)' : app.status === 'rejected' ? 'var(--red)' : 'var(--amber)',
+                            }}>
+                              {app.status === 'approved' ? '승인' : app.status === 'rejected' ? '거절' : '검토 중'}
+                            </span>
+                          </td>
+                          <td><span className="tm">{formatDate(app.created_at)}</span></td>
+                          <td>
+                            <button
+                              className="btn btn-t sm"
+                              onClick={e => { e.stopPropagation(); setAdvisoryDetail(app); setAdvisoryNote(app.admin_note || '') }}
+                            >
+                              상세
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </main>
+
+      {/* MODAL: 자문/배심원 신청 상세 */}
+      <div className={`overlay${advisoryDetail ? ' open' : ''}`} onClick={e => { if (e.target === e.currentTarget) setAdvisoryDetail(null) }}>
+        {advisoryDetail && (
+          <div className="modal modal-lg">
+            <div className="modal-head">
+              <span className="modal-ttl">{advisoryDetail.type} 신청 상세</span>
+              <button className="modal-x" onClick={() => setAdvisoryDetail(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'18px'}}>
+                <div className="ds"><div className="ds-lbl">이름</div><div className="ds-txt">{advisoryDetail.name}</div></div>
+                <div className="ds"><div className="ds-lbl">이메일</div><div className="ds-txt">{advisoryDetail.email}</div></div>
+                <div className="ds"><div className="ds-lbl">전화번호</div><div className="ds-txt">{advisoryDetail.phone || '-'}</div></div>
+                <div className="ds"><div className="ds-lbl">직업/전공</div><div className="ds-txt">{advisoryDetail.profession}</div></div>
+              </div>
+              <div className="ds"><div className="ds-lbl">관련 경력/경험</div><div className="ds-txt">{advisoryDetail.experience}</div></div>
+              <div className="ds"><div className="ds-lbl">지원 동기</div><div className="ds-txt">{advisoryDetail.motivation}</div></div>
+              <div className="fg">
+                <label className="flbl">관리자 메모</label>
+                <textarea
+                  className="ftextarea"
+                  value={advisoryNote}
+                  onChange={e => setAdvisoryNote(e.target.value)}
+                  placeholder="검토 의견이나 참고사항 입력"
+                />
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-g sm" onClick={() => setAdvisoryDetail(null)}>닫기</button>
+              <button
+                className="btn btn-r sm"
+                onClick={() => updateAdvisoryStatus(advisoryDetail.id, 'rejected', advisoryNote)}
+              >
+                거절
+              </button>
+              <button
+                className="btn btn-t sm"
+                onClick={() => updateAdvisoryStatus(advisoryDetail.id, 'approved', advisoryNote)}
+              >
+                승인
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* MODAL: 이슈 상세 */}
       <div className={`overlay${detailIssue?' open':''}`} onClick={e=>{if(e.target===e.currentTarget)setDetailIssue(null)}}>

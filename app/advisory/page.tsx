@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import TextPageTemplate from '@/components/TextPageTemplate'
+import AdvisoryApplySection from '@/components/AdvisoryApplySection'
 
 export const metadata: Metadata = {
   title: '법률자문단 및 시민배심원 | 시민신문고',
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 
 export default function AdvisoryPage() {
   return (
+    <>
     <TextPageTemplate
       category="Information"
       title="법률자문단 및 시민배심원"
@@ -42,5 +44,7 @@ export default function AdvisoryPage() {
         { label: '홈으로 이동', href: '/' },
       ]}
     />
+    <AdvisoryApplySection />
+    </>
   )
 }
