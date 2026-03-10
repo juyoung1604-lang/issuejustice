@@ -441,8 +441,8 @@ export default function HomePage() {
 
           {/* 데스크탑 네비게이션 */}
           <nav className="hidden md:flex items-center gap-2">
-            {["이슈 목록", "공감 랭킹", "제보하기", "운영 원칙"].map((label, i) => {
-              const ids = ["issues", "ranking", "register", "principles"]
+            {["핫이슈", "이슈목록", "공감랭킹", "운영원칙"].map((label, i) => {
+              const ids = ["hot", "issues", "ranking", "principles"]
               return (
                 <button key={label} onClick={() => scrollToSection(ids[i])} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-red-500 hover:bg-white rounded-xl transition-all duration-300">
                   {label}
@@ -467,8 +467,8 @@ export default function HomePage() {
         {/* 모바일 메뉴 오버레이 */}
         {isMobileMenuOpen && (
           <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-100 shadow-xl p-6 flex flex-col gap-4 animate-slide-up">
-            {["이슈 목록", "공감 랭킹", "제보하기", "운영 원칙"].map((label, i) => (
-              <button key={label} onClick={() => scrollToSection(["issues", "ranking", "register", "principles"][i])} className="text-left py-3 text-lg font-bold text-gray-800 border-b border-gray-50">
+            {["핫이슈", "이슈목록", "공감랭킹", "운영원칙"].map((label, i) => (
+              <button key={label} onClick={() => scrollToSection(["hot", "issues", "ranking", "principles"][i])} className="text-left py-3 text-lg font-bold text-gray-800 border-b border-gray-50">
                 {label}
               </button>
             ))}
@@ -535,6 +535,93 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ⭐ 추천 이슈 섹션 */}
+      <section id="hot" className="py-20 md:py-28 px-6 bg-white border-t border-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 md:mb-14 gap-4 fade-in">
+            <div className="space-y-2 md:space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse" /> 편집장 추천
+              </div>
+              <h2 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight">지금 주목할 이슈</h2>
+              <p className="text-sm md:text-base text-gray-400 font-medium">공론화 가능성이 높은 대표 사례를 선별했습니다.</p>
+            </div>
+          </div>
+
+          {/* 추천 이슈 카드 — 상위 3개 (공론화진행·기관전달·검증중 순) */}
+          <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+            {[ISSUES[0], ISSUES[2], ISSUES[1]].map((issue, idx) => (
+              <div
+                key={issue.id}
+                onClick={() => openModal(issue.id)}
+                className={`fade-in group relative rounded-[2rem] overflow-hidden cursor-pointer transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl ${
+                  idx === 0
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-[#F8F7F4] border border-gray-100'
+                }`}
+                style={{ transitionDelay: `${idx * 120}ms` }}
+              >
+                {idx === 0 && (
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,#ef4444_0%,transparent_60%)] opacity-20 pointer-events-none" />
+                )}
+                <div className="relative p-7 md:p-9 flex flex-col h-full min-h-[280px]">
+                  <div className="flex items-center justify-between mb-5">
+                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider ${
+                      idx === 0
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                        : getStatusStyle(issue.status)
+                    }`}>
+                      {issue.status}
+                    </span>
+                    <span className={`text-[10px] font-bold ${idx === 0 ? 'text-gray-500' : 'text-gray-400'}`}>
+                      {issue.region} · {issue.date}
+                    </span>
+                  </div>
+
+                  <h3 className={`text-lg md:text-xl font-extrabold leading-snug mb-3 line-clamp-2 flex-grow group-hover:text-red-500 transition-colors duration-300 ${
+                    idx === 0 ? 'text-white group-hover:text-red-400' : 'text-gray-900'
+                  }`}>
+                    {issue.title}
+                  </h3>
+
+                  <p className={`text-xs md:text-sm font-medium leading-relaxed line-clamp-2 mb-6 ${
+                    idx === 0 ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    {issue.summary}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className={`flex items-center gap-1.5 text-xs font-black ${idx === 0 ? 'text-red-400' : 'text-red-500'}`}>
+                      <i className="ri-heart-fill" />
+                      {issue.support.toLocaleString()} 공감
+                    </div>
+                    <div className={`flex flex-wrap gap-1.5`}>
+                      {issue.tags.map(tag => (
+                        <span key={tag} className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          idx === 0 ? 'bg-white/10 text-gray-400' : 'bg-white text-gray-500 border border-gray-200'
+                        }`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center fade-in">
+            <Link
+              href="/issues"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-gray-900 text-white font-black rounded-2xl hover:bg-red-500 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group"
+            >
+              전체 이슈 목록 보기
+              <i className="ri-arrow-right-line group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
         </div>
       </section>
@@ -892,7 +979,7 @@ export default function HomePage() {
             <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Platform</h4>
             <ul className="space-y-3 md:space-y-4 font-bold text-xs md:text-sm text-gray-400">
               {[
-                { label: "최신 이슈", href: "/issues" },
+                { label: "최신 이슈", href: "/issues/latest" },
                 { label: "공감 랭킹", href: "/ranking" },
                 { label: "제보 가이드", href: "/guide" },
                 { label: "데이터 아카이브", href: "/archive" },
@@ -907,6 +994,15 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
+            <div className="mt-6">
+              <Link
+                href="/issues"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black text-gray-300 hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-300"
+              >
+                <i className="ri-file-list-3-line" />
+                전체 이슈보기
+              </Link>
+            </div>
           </div>
           <div>
             <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Information</h4>
@@ -931,7 +1027,7 @@ export default function HomePage() {
         </div>
         <div className="max-w-7xl mx-auto mt-16 md:mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
           <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2026 Citizen Justice. All Rights Reserved.</p>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6 flex-wrap justify-center">
             <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version 1.0.0-Beta</span>
             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
