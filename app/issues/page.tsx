@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import FileViewerModal from '@/components/FileViewerModal'
 import IssueChatPanel from '@/components/IssueChatPanel'
 
@@ -75,6 +75,7 @@ const NAV_MENUS = [
 
 function IssuesContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const sortParam = searchParams.get('sort')
   const queryParam = searchParams.get('q') || ''
 
@@ -381,8 +382,8 @@ function IssuesContent() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => { setSearchQuery(''); setTagFilter('전체'); setStatusFilter('전체'); setDateFrom(''); setDateTo(''); resetPage() }}
-                className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-black transition-all duration-200 ${!searchQuery && tagFilter === '전체' && statusFilter === '전체' && !dateFrom && !dateTo ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400'}`}
+                onClick={() => { setSearchQuery(''); setTagFilter('전체'); setStatusFilter('전체'); setDateFrom(''); setDateTo(''); resetPage(); router.push('/issues') }}
+                className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-black transition-all duration-200 ${!searchQuery && tagFilter === '전체' && statusFilter === '전체' && !dateFrom && !dateTo && !isLatestMode ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400'}`}
               >
                 <i className="ri-search-2-line" /> 전체검색
               </button>
@@ -393,26 +394,50 @@ function IssuesContent() {
           </div>
 
           {/* 일자별 조회 */}
-          <div className="flex flex-wrap items-center gap-2 mb-6 p-4 bg-white border border-gray-100 rounded-2xl">
-            <span className="text-xs font-black text-gray-500 flex items-center gap-1.5 shrink-0">
-              <i className="ri-calendar-line text-gray-400" /> 일자별 조회
-            </span>
+          <div className="flex flex-col gap-3 mb-6 p-4 bg-white border border-gray-100 rounded-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-black text-gray-500 flex items-center gap-1.5 shrink-0">
+                <i className="ri-calendar-line text-gray-400" /> 일자별 조회
+              </span>
+              {/* 퀵 버튼 */}
+              {[
+                { label: '1주일', days: 7 },
+                { label: '1개월', days: 30 },
+                { label: '3개월', days: 90 },
+              ].map(({ label, days }) => {
+                const to = new Date()
+                const from = new Date()
+                from.setDate(from.getDate() - days)
+                const toStr = to.toISOString().slice(0, 10)
+                const fromStr = from.toISOString().slice(0, 10)
+                const isActive = dateFrom === fromStr && dateTo === toStr
+                return (
+                  <button
+                    key={label}
+                    onClick={() => { setDateFrom(fromStr); setDateTo(toStr); resetPage() }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all duration-200 ${isActive ? 'bg-red-500 text-white' : 'bg-gray-50 border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); resetPage() }} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                  <i className="ri-close-line" /> 초기화
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); resetPage() }} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-600 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/10 transition-all cursor-pointer" />
               <span className="text-xs font-bold text-gray-300">~</span>
               <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); resetPage() }} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-600 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/10 transition-all cursor-pointer" />
               {(dateFrom || dateTo) && (
-                <button onClick={() => { setDateFrom(''); setDateTo(''); resetPage() }} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-black text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                  <i className="ri-close-line" /> 초기화
-                </button>
+                <span className="text-[11px] font-bold text-red-500">
+                  {dateFrom && dateTo ? `${dateFrom} ~ ${dateTo}` : dateFrom ? `${dateFrom} 이후` : `${dateTo} 이전`}
+                  {' · '}{totalCount}건
+                </span>
               )}
             </div>
-            {(dateFrom || dateTo) && (
-              <span className="text-[11px] font-bold text-red-500 ml-1">
-                {dateFrom && dateTo ? `${dateFrom} ~ ${dateTo}` : dateFrom ? `${dateFrom} 이후` : `${dateTo} 이전`}
-                {' · '}{totalCount}건
-              </span>
-            )}
           </div>
 
           {/* 태그 필터 */}
