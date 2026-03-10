@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export async function GET() {
+  const { data, error } = await supabaseAdmin
+    .from('issues')
+    .select('id, title, summary, status, enforcement_type, field_category, region, occurred_at, created_at, support_count, overview, sense, problem')
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data })
+}
+
 export async function POST(request: Request) {
   const body = await request.json()
   const { title, enforcement_type, field_category, region, occurred_at, overview, sense, requests, submitter_token, submitter_email } = body

@@ -24,6 +24,24 @@ export async function PATCH(
     return NextResponse.json({ ok: true })
   }
 
+  if (action === 'publish') {
+    const { error } = await supabaseAdmin
+      .from('issues')
+      .update({ is_published: true, published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'unpublish') {
+    const { error } = await supabaseAdmin
+      .from('issues')
+      .update({ is_published: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   if (action === 'reject') {
     const { error } = await supabaseAdmin.from('issues').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -59,10 +59,10 @@ function normalizeAttachment(input: IssueAttachmentInput): IssueAttachment {
   }
 }
 
-// 모의 데이터 (한국어 사례)
+// 모의 데이터 — DB에 공개 이슈가 없을 때 폴백용
 const ISSUES = [
   {
-    id: 1,
+    id: '1',
     title: "동일 경범죄 위반에 A구는 훈방, B구는 과태료 48만원 부과",
     summary: "동일한 경범죄처벌법 위반 행위에 대해 지역별로 처벌 수위가 최대 10배 이상 차이 나는 사례가 다수 확인됨.",
     status: "공론화진행",
@@ -76,7 +76,7 @@ const ISSUES = [
     attachments: ["처분서_A구.pdf", "과태료고지서_B구.pdf"]
   },
   {
-    id: 2,
+    id: '2',
     title: "소규모 자영업자 세무조사, 대기업 동일 위반 대비 5배 중한 처분",
     summary: "매출 3억 이하 소규모 자영업자에 대한 세무조사 처분이 동일 위반 내용의 대기업 대비 현저히 중하게 부과된 사례.",
     status: "검증중",
@@ -90,7 +90,7 @@ const ISSUES = [
     attachments: ["세무조사결과통지서.pdf", "대기업_처분사례_비교.xlsx"]
   },
   {
-    id: 3,
+    id: '3',
     title: "건축물 용도변경 신고 없이 10년 영업한 대형 상가, 단 경고로 종결",
     summary: "영세 음식점에는 즉시 영업정지 처분이 내려진 동일 위반 사항에 대해, 대형 쇼핑몰에는 시정권고만 부과.",
     status: "기관전달",
@@ -104,7 +104,7 @@ const ISSUES = [
     attachments: ["건축물대장.pdf", "시정권고서.pdf"]
   },
   {
-    id: 4,
+    id: '4',
     title: "교통단속 카메라 사각지대 구간에만 집중적 수동 단속 시행",
     summary: "CCTV 미설치 구간에서만 반복적으로 수동 단속이 집중되어, 단속 수입 극대화 의도가 명백하다는 민원이 잇따르고 있음.",
     status: "검증중",
@@ -130,13 +130,47 @@ const PRINCIPLES = [
   { icon: "ri-broadcast-line", title: "공론화 연결", description: "누적된 이슈는 언론 및 관계 기관 전달용 리포트로 생성되어 제도적 변화를 이끌어냅니다." }
 ]
 
+interface DbIssue {
+  id: string
+  title: string
+  summary: string
+  status: string
+  enforcement_type: string
+  field_category: string
+  region: string
+  occurred_at: string | null
+  created_at: string
+  support_count: number
+  overview: string
+  sense: string
+  problem: string
+}
+
+function normalizeDbIssue(i: DbIssue) {
+  return {
+    id: i.id,
+    title: i.title,
+    summary: i.summary || '',
+    status: i.status,
+    tags: [i.enforcement_type, i.field_category].filter(Boolean),
+    region: i.region,
+    date: (i.occurred_at || i.created_at || '').slice(0, 10),
+    support: i.support_count || 0,
+    overview: i.overview || '',
+    problem: i.problem || '',
+    sense: i.sense || '',
+    attachments: [] as string[],
+  }
+}
+
 export default function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [showScrollTop, setShowScrollTop] = useState(false)
-  const [activeModalId, setActiveModalId] = useState<number | null>(null)
+  const [activeModalId, setActiveModalId] = useState<string | null>(null)
   const [toast, setToast] = useState({ message: "", visible: false })
-  const [supportedIds, setSupportedIds] = useState<number[]>([])
+  const [supportedIds, setSupportedIds] = useState<string[]>([])
   const [issueFilter, setIssueFilter] = useState("전체")
+  const [dbIssues, setDbIssues] = useState<ReturnType<typeof normalizeDbIssue>[]>([])
   const [rankingPeriod, setRankingPeriod] = useState("주간")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [myPageOpen, setMyPageOpen] = useState(false)
@@ -153,6 +187,21 @@ export default function HomePage() {
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [createdIssueId, setCreatedIssueId] = useState<string | null>(null)
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false)
+
+  // DB 공개 이슈 불러오기
+  useEffect(() => {
+    fetch('/api/issues')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data && json.data.length > 0) {
+          setDbIssues(json.data.map(normalizeDbIssue))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // 실제 표시 이슈: DB 이슈가 있으면 사용, 없으면 모의 데이터 폴백
+  const displayIssues = dbIssues.length > 0 ? dbIssues : ISSUES
 
   // 애니메이션용 Observer
   useEffect(() => {
@@ -189,7 +238,7 @@ export default function HomePage() {
     setTimeout(() => setToast({ message: "", visible: false }), 3000)
   }
 
-  const toggleSupport = (id: number) => {
+  const toggleSupport = (id: string) => {
     if (supportedIds.includes(id)) {
       setSupportedIds(prev => prev.filter(item => item !== id))
       showToast("공감을 취소했습니다.")
@@ -199,14 +248,14 @@ export default function HomePage() {
     }
   }
 
-  const buildIssueShareUrl = (id: number) => {
+  const buildIssueShareUrl = (id: string) => {
     if (typeof window === 'undefined') return `/?issue=${id}`
     const url = new URL(window.location.href)
-    url.searchParams.set('issue', String(id))
+    url.searchParams.set('issue', id)
     return url.toString()
   }
 
-  const updateIssueQueryParam = (issueId: number | null, historyMode: 'push' | 'replace' = 'push') => {
+  const updateIssueQueryParam = (issueId: string | null, historyMode: 'push' | 'replace' = 'push') => {
     if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
 
@@ -223,7 +272,7 @@ export default function HomePage() {
     }
   }
 
-  const openModal = (id: number, options?: { syncUrl?: boolean }) => {
+  const openModal = (id: string, options?: { syncUrl?: boolean }) => {
     setActiveModalId(id)
     document.body.style.overflow = "hidden"
     if (options?.syncUrl !== false) {
@@ -249,8 +298,9 @@ export default function HomePage() {
         return
       }
 
-      const issueId = Number(issueParam)
-      const isValidIssue = Number.isInteger(issueId) && ISSUES.some(issue => issue.id === issueId)
+      const issueId = issueParam
+      const allIssues = dbIssues.length > 0 ? dbIssues : ISSUES
+      const isValidIssue = allIssues.some(issue => issue.id === issueId)
       if (!isValidIssue) {
         closeModal({ syncUrl: false })
         return
@@ -353,9 +403,9 @@ export default function HomePage() {
     setSelectedRequests(prev => prev.includes(req) ? prev.filter(r => r !== req) : [...prev, req])
   }
 
-  const filteredIssues = issueFilter === "전체" ? ISSUES : ISSUES.filter(i => i.tags.includes(issueFilter))
-  const sortedRanking = [...ISSUES].sort((a, b) => b.support - a.support).slice(0, 5)
-  const currentModalIssue = ISSUES.find(i => i.id === activeModalId)
+  const filteredIssues = issueFilter === "전체" ? displayIssues : displayIssues.filter(i => i.tags.includes(issueFilter))
+  const sortedRanking = [...displayIssues].sort((a, b) => b.support - a.support).slice(0, 5)
+  const currentModalIssue = displayIssues.find(i => i.id === activeModalId)
   const issueShareUrl = currentModalIssue ? buildIssueShareUrl(currentModalIssue.id) : ''
 
   const copyIssueShareUrl = async () => {
@@ -508,7 +558,7 @@ export default function HomePage() {
 
           <div className="relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
             <div className="relative space-y-2.5 sm:space-y-4 bg-white/40 backdrop-blur-xl p-3 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
-              {ISSUES.slice(0, 5).map((issue, i) => (
+              {displayIssues.slice(0, 5).map((issue, i) => (
                 <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-2.5 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
                   <div className={`flex-shrink-0 w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-[10px] sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
                     {i + 1}
@@ -545,9 +595,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 추천 이슈 카드 — 상위 3개 (공론화진행·기관전달·검증중 순) */}
+          {/* 추천 이슈 카드 — 상위 3개 */}
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-            {[ISSUES[0], ISSUES[2], ISSUES[1]].map((issue, idx) => (
+            {displayIssues.slice(0, 3).map((issue, idx) => (
               <div
                 key={issue.id}
                 onClick={() => openModal(issue.id)}

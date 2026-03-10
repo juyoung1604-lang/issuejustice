@@ -488,6 +488,24 @@ export default function AdminPage() {
     }
   }
 
+  const togglePublish = async (id: string, currentlyPublished: boolean) => {
+    const action = currentlyPublished ? 'unpublish' : 'publish'
+    const res = await fetch(`/api/admin/issues/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    if (res.ok) {
+      setAllIssues(l => l.map(x => x.id === id ? {...x, is_published: !currentlyPublished} : x))
+      if (!currentlyPublished) {
+        setPendingList(l => l.filter(x => x.id !== id))
+      }
+      toast(currentlyPublished ? '이슈를 비공개로 전환했습니다.' : '이슈를 공개했습니다.', 'ok')
+    } else {
+      toast('처리 중 오류가 발생했습니다.', 'err')
+    }
+  }
+
   const confirmReject = async () => {
     if (!rejectReason.trim()) { toast('거절 사유를 입력하세요.', 'err'); return }
     if (rejectIssue) {
@@ -827,9 +845,17 @@ export default function AdminPage() {
                           <td><span className="tag">{issue.field_category}</span></td>
                           <td className="tm">{issue.region}</td>
                           <td className="tm" style={{color:'var(--teal)'}}>{issue.support_count.toLocaleString()}</td>
-                          <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:issue.is_published?'var(--green)':'var(--red)'}}>{issue.is_published?'● 공개':'○ 비공개'}</span></td>
+                          <td><span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:issue.is_published?'var(--green)':'var(--t2)'}}>{issue.is_published?'● 공개':'○ 비공개'}</span></td>
                           <td onClick={e => e.stopPropagation()}>
-                            <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>상태변경</button>
+                            <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                              <button
+                                className={`btn sm ${issue.is_published ? 'btn-r' : 'btn-t'}`}
+                                onClick={() => togglePublish(issue.id, issue.is_published)}
+                              >
+                                {issue.is_published ? '비공개' : '▶ 공개'}
+                              </button>
+                              <button className="btn btn-g sm" onClick={() => { setStatusIssue({id:issue.id,title:issue.title,status:issue.status}); setSelSt('') }}>상태</button>
+                            </div>
                           </td>
                         </tr>
                       ))}
