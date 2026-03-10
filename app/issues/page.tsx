@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Header from '@/components/layout/Header'
+import { Header } from '@/components/layout/Header'
 import FileViewerModal from '@/components/FileViewerModal'
 import IssueChatPanel from '@/components/IssueChatPanel'
 
