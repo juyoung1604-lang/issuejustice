@@ -649,8 +649,8 @@ export default function HomePage() {
                       {issue.support.toLocaleString()} 공감
                     </div>
                     <div className={`flex flex-wrap gap-1.5`}>
-                      {issue.tags.map(tag => (
-                        <span key={tag} className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      {issue.tags.map((tag, ti) => (
+                        <span key={`${tag}-${ti}`} className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                           idx === 0 ? 'bg-white/10 text-gray-400' : 'bg-white text-gray-500 border border-gray-200'
                         }`}>
                           {tag}
