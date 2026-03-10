@@ -208,7 +208,7 @@ export default function HomePage() {
 
   // 실제 표시 이슈: DB 이슈 + (설정에 따라) 샘플 이슈
   const sampleIssues = showSampleIssues ? ISSUES : []
-  const displayIssues = [...dbIssues, ...sampleIssues]
+  const displayIssues = [...sampleIssues, ...dbIssues]
 
   // 애니메이션용 Observer
   useEffect(() => {
