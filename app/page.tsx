@@ -375,34 +375,34 @@ export default function HomePage() {
       </header>
 
       {/* 🚀 히어로 섹션 (역동적인 타이포그래피) */}
-      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+      <section id="hero" className="relative pt-32 pb-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8 fade-in text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase">
               <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> 시민 공론 플랫폼
             </div>
-            <h1 className="text-6xl sm:text-6xl md:text-8xl font-black leading-[1.05] tracking-tighter text-gray-900 break-keep">
+            <h1 className="text-7xl sm:text-7xl md:text-9xl font-black leading-[0.9] tracking-tighter text-gray-900 break-keep">
               상식을<br />기록하면<br /><span className="text-red-500">세상이<br className="sm:hidden" /> 바뀐다</span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-full sm:max-w-lg font-medium break-keep">
+            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-[90%] sm:max-w-lg font-medium break-keep">
               불합리한 법집행 사례를 증거와 구조로 기록하고,
-              시민의 지지와 공감으로 공론화합니다. 데이터로 상식을 시각화합니다.
+              시민의 지지와 공감으로 공론화합니다.
             </p>
             
-            <div className="flex flex-wrap justify-start gap-4 sm:gap-8 md:gap-10 py-4 border-y border-gray-100">
+            <div className="flex flex-wrap justify-start gap-x-6 gap-y-4 py-4 border-y border-gray-100">
               {[["등록 이슈", STATS.totalIssues], ["누적 공감", "18.4k"], ["해결 사례", STATS.resolvedCases]].map(([label, val]) => (
                 <div key={label as string} className="min-w-fit">
-                  <div className="text-2xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
+                  <div className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
                   <div className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{label}</div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-start w-full sm:w-auto">
-              <button onClick={() => scrollToSection("register")} className="w-full sm:w-auto px-6 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 justify-start w-full sm:w-auto pr-4 sm:pr-0">
+              <button onClick={() => scrollToSection("register")} className="w-full sm:w-auto px-5 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center gap-2">
                 지금 이슈 제보하기 <i className="ri-arrow-right-line" />
               </button>
-              <button onClick={() => scrollToSection("issues")} className="w-full sm:w-auto px-6 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center">
+              <button onClick={() => scrollToSection("issues")} className="w-full sm:w-auto px-5 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center">
                 실시간 이슈 보기
               </button>
             </div>
@@ -617,16 +617,16 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => formData.title && formData.type && formData.region ? setFormStep(2) : showToast("필수 항목을 모두 입력해 주세요.")}
                       className="w-full py-5 md:py-7 bg-gray-900 text-white font-black rounded-2xl md:rounded-[2rem] hover:bg-red-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 active:scale-[0.98] text-lg md:text-2xl group"
                     >
-                      상세 내용 작성하러 가기 
+                      상세 내용 작성하러 가기
                       <i className="ri-arrow-right-up-line ml-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </button>
                   </div>
-                ) : (
+                ) : formStep === 2 ? (
                   <div className="space-y-8 md:space-y-10 step-enter">
                     <div className="group">
                       <label className="block text-[10px] md:text-sm font-black text-gray-400 uppercase tracking-widest mb-3 md:mb-4">요청 사항</label>
@@ -725,7 +725,7 @@ export default function HomePage() {
                       </button>
                     </div>
                     <p className="text-center text-xs text-gray-400 font-medium">
-                      자료를 첨부하지 않아도 제보가 접수됩니다. 나중에 추가할 수 없으니 지금 첨부해 주세요.
+                      자료를 첨부하지 않아도 제보가 접수됩니다. 나중에 추가할 수 있습니다.
                     </p>
                   </div>
                 )}
