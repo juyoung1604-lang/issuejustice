@@ -173,6 +173,7 @@ export default function HomePage() {
   const [dbIssues, setDbIssues] = useState<ReturnType<typeof normalizeDbIssue>[]>([])
   const [showSampleIssues, setShowSampleIssues] = useState(true)
   const [rankingPeriod, setRankingPeriod] = useState("주간")
+  const [snsLinks, setSnsLinks] = useState({ facebook: '', twitter: '', instagram: '', youtube: '' })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [myPageOpen, setMyPageOpen] = useState(false)
   const { user, submitterToken } = useAuth()
@@ -201,6 +202,20 @@ export default function HomePage() {
       .then(json => {
         if (json.data?.show_sample_issues !== undefined) {
           setShowSampleIssues(json.data.show_sample_issues !== 'false')
+        }
+      })
+      .catch(() => {})
+
+    fetch('/api/site-config')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          setSnsLinks({
+            facebook:  json.data.sns_facebook  ?? '',
+            twitter:   json.data.sns_twitter   ?? '',
+            instagram: json.data.sns_instagram ?? '',
+            youtube:   json.data.sns_youtube   ?? '',
+          })
         }
       })
       .catch(() => {})
@@ -1078,8 +1093,14 @@ export default function HomePage() {
               개인의 분노가 아닌 데이터로 세상을 바꿉니다.
             </p>
             <div className="flex gap-4">
-              {["ri-facebook-fill", "ri-twitter-x-fill", "ri-instagram-line", "ri-youtube-fill"].map(icon => (
-                <a key={icon} href="#" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-red-500 transition-all duration-300">
+              {([
+                { icon: 'ri-facebook-fill',   url: snsLinks.facebook  },
+                { icon: 'ri-twitter-x-fill',  url: snsLinks.twitter   },
+                { icon: 'ri-instagram-line',  url: snsLinks.instagram },
+                { icon: 'ri-youtube-fill',    url: snsLinks.youtube   },
+              ]).filter(s => s.url).map(({ icon, url }) => (
+                <a key={icon} href={url} target="_blank" rel="noopener noreferrer"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-red-500 transition-all duration-300">
                   <i className={icon} />
                 </a>
               ))}

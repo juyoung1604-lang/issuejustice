@@ -392,6 +392,27 @@ export default function AdminPage() {
   const [advisoryDetail, setAdvisoryDetail] = useState<AdvisoryApplication | null>(null)
   const [advisoryNote, setAdvisoryNote] = useState('')
 
+  // SNS 계정 관리
+  const [snsLinks, setSnsLinks] = useState({ facebook: '', twitter: '', instagram: '', youtube: '' })
+  const [snsSaving, setSnsSaving] = useState(false)
+
+  const saveSnsLinks = async () => {
+    setSnsSaving(true)
+    try {
+      await Promise.all([
+        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_facebook',  value: snsLinks.facebook  }) }),
+        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_twitter',   value: snsLinks.twitter   }) }),
+        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_instagram', value: snsLinks.instagram }) }),
+        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_youtube',   value: snsLinks.youtube   }) }),
+      ])
+      toast('SNS 계정이 저장되었습니다.', 'ok')
+    } catch {
+      toast('저장 중 오류가 발생했습니다.', 'err')
+    } finally {
+      setSnsSaving(false)
+    }
+  }
+
   const loadSampleSetting = async () => {
     try {
       const res = await fetch('/api/admin/settings')
@@ -402,6 +423,12 @@ export default function AdminPage() {
       if (json.data?.chat_banned_words) {
         setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
       }
+      setSnsLinks({
+        facebook:  json.data?.sns_facebook  ?? '',
+        twitter:   json.data?.sns_twitter   ?? '',
+        instagram: json.data?.sns_instagram ?? '',
+        youtube:   json.data?.sns_youtube   ?? '',
+      })
     } catch { /* ignore */ }
   }
 
@@ -1393,6 +1420,43 @@ export default function AdminPage() {
                     <button className="btn btn-t sm" style={{flex:1}} onClick={() => toast('수동 백업 시작','ok')}>🔒 수동 백업</button>
                     <button className="btn btn-r sm" style={{flex:1}} onClick={() => toast('캐시 초기화 완료')}>🗑 캐시 초기화</button>
                   </div>
+                </div>
+              </div>
+
+              {/* SNS 계정 관리 */}
+              <div className="panel" style={{marginTop:'16px'}}>
+                <div className="panel-head">
+                  <span className="panel-title">SNS 계정 관리</span>
+                  <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>홈페이지 푸터에 반영됩니다</span>
+                </div>
+                <div className="panel-body">
+                  {([
+                    ['facebook',  '페이스북',  'ri-facebook-fill'],
+                    ['twitter',   'X (트위터)', 'ri-twitter-x-fill'],
+                    ['instagram', '인스타그램', 'ri-instagram-line'],
+                    ['youtube',   '유튜브',     'ri-youtube-fill'],
+                  ] as const).map(([key, label, icon]) => (
+                    <div key={key} className="fg" style={{marginBottom:'10px'}}>
+                      <label className="flbl" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                        <i className={icon} style={{fontSize:'13px'}} />{label}
+                      </label>
+                      <input
+                        className="finput"
+                        type="url"
+                        placeholder={`https://www.${key === 'twitter' ? 'x' : key}.com/...`}
+                        value={snsLinks[key]}
+                        onChange={e => setSnsLinks(prev => ({ ...prev, [key]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    className="btn btn-t sm"
+                    style={{width:'100%',justifyContent:'center',marginTop:'4px'}}
+                    onClick={saveSnsLinks}
+                    disabled={snsSaving}
+                  >
+                    {snsSaving ? '⟳ 저장 중...' : '💾 SNS 계정 저장'}
+                  </button>
                 </div>
               </div>
             </div>
