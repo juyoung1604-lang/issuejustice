@@ -483,20 +483,20 @@ export default function HomePage() {
 
           <div className="grid gap-4">
             {sortedRanking.map((issue, i) => (
-              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-col md:flex-row items-center gap-6 md:gap-8 p-6 md:p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-[1.2rem] md:rounded-[1.5rem] text-xl md:text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
+              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-row items-start md:items-center gap-4 md:gap-8 p-5 md:p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-20 md:h-20 flex items-center justify-center rounded-xl md:rounded-[1.5rem] text-sm sm:text-lg md:text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
                   0{i + 1}
                 </div>
-                <div className="flex-1 min-w-0 text-center md:text-left">
-                  <div className="flex flex-wrap justify-center md:justify-start gap-2 md:gap-3 mb-3 md:mb-4">
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex flex-wrap justify-start gap-2 md:gap-3 mb-2 md:mb-4">
                     {issue.tags.map(tag => (
                       <span key={tag} className="px-2 py-0.5 md:px-3 md:py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
                     ))}
                   </div>
-                  <h3 className="text-xl md:text-2xl font-black text-white line-clamp-1 group-hover:text-red-400 transition-colors duration-300 tracking-tight">{issue.title}</h3>
+                  <h3 className="text-base sm:text-lg md:text-2xl font-black text-white group-hover:text-red-400 transition-colors duration-300 tracking-tight leading-snug">{issue.title}</h3>
                 </div>
-                <div className="flex-shrink-0 text-center md:text-right">
-                  <div className="text-3xl md:text-4xl font-black text-red-500 tracking-tighter group-hover:scale-110 transition-transform duration-500">{issue.support.toLocaleString()}</div>
+                <div className="flex-shrink-0 text-right hidden sm:block">
+                  <div className="text-2xl md:text-4xl font-black text-red-500 tracking-tighter group-hover:scale-110 transition-transform duration-500">{issue.support.toLocaleString()}</div>
                   <div className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Supporters</div>
                 </div>
               </div>
