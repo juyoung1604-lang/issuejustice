@@ -131,6 +131,7 @@ const PRINCIPLES = [
 
 export default function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
   const [activeModalId, setActiveModalId] = useState<number | null>(null)
   const [toast, setToast] = useState({ message: "", visible: false })
   const [supportedIds, setSupportedIds] = useState<number[]>([])
@@ -164,7 +165,10 @@ export default function HomePage() {
 
   // 애니메이션용 Observer
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50)
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50)
+      setShowScrollTop(window.scrollY > 300)
+    }
     window.addEventListener("scroll", handleScroll)
 
     const observer = new IntersectionObserver((entries) => {
@@ -1105,6 +1109,15 @@ export default function HomePage() {
 
       {/* 📋 마이페이지 드로어 */}
       <MyPageDrawer open={myPageOpen} onClose={() => setMyPageOpen(false)} deviceToken={deviceToken} />
+
+      {/* 🔝 최상단 이동 버튼 */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        className={`fixed bottom-8 right-8 z-[50] w-12 h-12 md:w-14 md:h-14 bg-white text-gray-900 rounded-2xl smooth-shadow-xl border border-gray-100 flex items-center justify-center transition-all duration-500 hover:bg-gray-900 hover:text-white hover:-translate-y-2 active:scale-90 ${showScrollTop ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"}`}
+        aria-label="Scroll to top"
+      >
+        <i className="ri-arrow-up-line text-xl md:text-2xl" />
+      </button>
     </div>
   )
 }
