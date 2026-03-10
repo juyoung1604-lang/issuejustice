@@ -6,6 +6,7 @@ import MyPageDrawer from '@/components/MyPageDrawer'
 import FileViewerModal from '@/components/FileViewerModal'
 import IssueChatPanel from '@/components/IssueChatPanel'
 import { FileUpload } from '@/components/FileUpload'
+import { useAuth } from '@/hooks/useAuth'
 
 interface IssueAttachment {
   id?: string
@@ -138,8 +139,8 @@ export default function HomePage() {
   const [issueFilter, setIssueFilter] = useState("전체")
   const [rankingPeriod, setRankingPeriod] = useState("주간")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [deviceToken, setDeviceToken] = useState("")
   const [myPageOpen, setMyPageOpen] = useState(false)
+  const { user, submitterToken } = useAuth()
   const [activeAttachment, setActiveAttachment] = useState<IssueAttachment | null>(null)
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false)
   const [isAttachmentLoading, setIsAttachmentLoading] = useState(false)
@@ -152,16 +153,6 @@ export default function HomePage() {
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [createdIssueId, setCreatedIssueId] = useState<string | null>(null)
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false)
-
-  // 디바이스 토큰 초기화
-  useEffect(() => {
-    let token = localStorage.getItem('sinmungo_device_token')
-    if (!token) {
-      token = crypto.randomUUID()
-      localStorage.setItem('sinmungo_device_token', token)
-    }
-    setDeviceToken(token)
-  }, [])
 
   // 애니메이션용 Observer
   useEffect(() => {
@@ -331,7 +322,7 @@ export default function HomePage() {
           overview: formData.overview,
           sense: formData.problemSense,
           requests: selectedRequests,
-          submitter_token: deviceToken || null,
+          submitter_token: submitterToken || null,
         }),
       })
       if (res.ok) {
@@ -450,8 +441,9 @@ export default function HomePage() {
               )
             })}
             <div className="w-px h-4 bg-gray-200 mx-2" />
-            <button onClick={() => setMyPageOpen(true)} className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:border-red-300 hover:text-red-500 transition-all duration-300 flex items-center gap-2">
-              <i className="ri-user-line" /> 내 제보
+            <button onClick={() => setMyPageOpen(true)} className={`px-4 py-2.5 border text-sm font-bold rounded-xl transition-all duration-300 flex items-center gap-2 ${user ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:border-emerald-400' : 'bg-white border-gray-200 text-gray-700 hover:border-red-300 hover:text-red-500'}`}>
+              <i className={user ? 'ri-shield-user-line' : 'ri-user-line'} />
+              {user ? user.email?.split('@')[0] : '내 제보'}
             </button>
             <button onClick={() => scrollToSection("register")} className="px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-red-500 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 active:scale-95">
               이슈 제보하기
@@ -614,15 +606,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-10 text-center fade-in">
-            <Link
-              href="/issues"
-              className="inline-flex items-center gap-3 px-10 py-5 bg-gray-900 text-white font-black rounded-2xl hover:bg-red-500 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group"
-            >
-              전체 이슈 목록 보기
-              <i className="ri-arrow-right-line group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -994,15 +977,6 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-6">
-              <Link
-                href="/issues"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black text-gray-300 hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-300"
-              >
-                <i className="ri-file-list-3-line" />
-                전체 이슈보기
-              </Link>
-            </div>
           </div>
           <div>
             <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Information</h4>
@@ -1204,7 +1178,7 @@ export default function HomePage() {
       )}
 
       {/* 📋 마이페이지 드로어 */}
-      <MyPageDrawer open={myPageOpen} onClose={() => setMyPageOpen(false)} deviceToken={deviceToken} />
+      <MyPageDrawer open={myPageOpen} onClose={() => setMyPageOpen(false)} />
 
       {/* 🔝 최상단 이동 버튼 */}
       <button

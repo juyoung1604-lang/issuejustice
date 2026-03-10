@@ -157,16 +157,16 @@ submitter_token(UUID) → user_id(Supabase Auth)로 마이그레이션
 ```
 
 **구현 체크리스트**
-- [ ] Supabase Dashboard → Authentication → Email OTP 활성화
-- [ ] `app/auth/` 라우트 생성 (로그인 페이지 또는 모달)
-- [ ] `supabase.auth.signInWithOtp({ email })` 호출 구현
-- [ ] OTP 입력 UI 컴포넌트 작성 (`AuthModal.tsx`)
-- [ ] 세션 확인 미들웨어 또는 클라이언트 훅 (`useAuth`) 작성
-- [ ] `issues` 테이블 `submitter_token` 컬럼 → `user_id` (uuid, FK) 병행 운영
-- [ ] `/api/my-issues` API: `token` 파라미터 → `user_id` 우선 조회로 변경
-- [ ] `MyPageDrawer`: 비로그인 시 이메일 입력 유도 UI 추가
-- [ ] 기존 디바이스 토큰 제보 이력 마이그레이션 안내 문구 추가
-- [ ] 로그아웃 기능 구현
+- [x] Supabase Dashboard → Authentication → Email OTP 활성화
+- [x] `supabase.auth.signInWithOtp({ email })` 호출 구현
+- [x] OTP 입력 UI 컴포넌트 작성 (`components/AuthModal.tsx`)
+- [x] 세션 확인 클라이언트 훅 작성 (`hooks/useAuth.ts`)
+- [x] `submitter_token`: 로그인 시 `user.id`, 비로그인 시 deviceToken 자동 분기
+- [x] `/api/my-issues` API: 기존 token 파라미터로 user.id 조회 호환
+- [x] `MyPageDrawer`: 비로그인 시 이메일 로그인 유도 배너 추가
+- [x] 헤더 "내 제보" 버튼: 로그인 상태 시 이메일 앞자리 + 초록 표시
+- [x] 로그아웃 기능 구현 (드로어 헤더 로그아웃 버튼)
+- [ ] 기존 디바이스 토큰 제보 이력 → 로그인 계정 연동 마이그레이션 (선택)
 
 **관련 파일**
 ```

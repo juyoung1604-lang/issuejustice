@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import AuthModal from '@/components/AuthModal'
+import { useAuth } from '@/hooks/useAuth'
 
 interface MyIssue {
   id: string
@@ -20,7 +22,7 @@ interface MyIssue {
 interface Props {
   open: boolean
   onClose: () => void
-  deviceToken: string
+  deviceToken?: string
 }
 
 type Screen = 'list' | 'detail'
@@ -33,7 +35,9 @@ const STATUS_STYLE: Record<string, string> = {
   '종결': 'bg-gray-50 text-gray-500 border-gray-200',
 }
 
-export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
+export default function MyPageDrawer({ open, onClose }: Props) {
+  const { user, submitterToken, signOut, loading: authLoading } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
   const [screen, setScreen] = useState<Screen>('list')
   const [issues, setIssues] = useState<MyIssue[]>([])
   const [loading, setLoading] = useState(false)
@@ -52,10 +56,10 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
   }
 
   const fetchIssues = useCallback(async () => {
-    if (!deviceToken) return
+    if (!submitterToken) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/my-issues?token=${deviceToken}`)
+      const res = await fetch(`/api/my-issues?token=${submitterToken}`)
       const json = await res.json()
       if (json.data) setIssues(json.data)
     } catch {
@@ -63,14 +67,14 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [deviceToken])
+  }, [submitterToken])
 
   useEffect(() => {
-    if (open && deviceToken) {
+    if (open && submitterToken) {
       fetchIssues()
       setScreen('list')
     }
-  }, [open, deviceToken, fetchIssues])
+  }, [open, submitterToken, fetchIssues])
 
   const openDetail = (issue: MyIssue) => {
     setSelectedIssue(issue)
@@ -89,7 +93,7 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: deviceToken, action: 'supplement', data: { note: supplementText } }),
+        body: JSON.stringify({ token: submitterToken, action: 'supplement', data: { note: supplementText } }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -116,7 +120,7 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: deviceToken, action: 'edit', data: { overview: editOverview, sense: editSense } }),
+        body: JSON.stringify({ token: submitterToken, action: 'edit', data: { overview: editOverview, sense: editSense } }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -140,7 +144,7 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
       const res = await fetch(`/api/my-issues/${selectedIssue.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: deviceToken, action: 'withdraw', data: {} }),
+        body: JSON.stringify({ token: submitterToken, action: 'withdraw', data: {} }),
       })
       const json = await res.json()
       if (json.ok) {
@@ -191,22 +195,67 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
               <h2 className="text-xl font-black text-gray-900">
                 {screen === 'list' ? '내 제보 목록' : '제보 상세'}
               </h2>
-              {screen === 'list' && deviceToken && (
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
-                  Device · {deviceToken.slice(0, 8).toUpperCase()}
-                </p>
+              {screen === 'list' && (
+                <div className="flex items-center gap-2 mt-0.5">
+                  {!authLoading && user ? (
+                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest flex items-center gap-1">
+                      <i className="ri-shield-check-fill" /> {user.email}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                      디바이스 · {submitterToken.slice(0, 8).toUpperCase()}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-gray-50 hover:bg-red-50 hover:text-red-500 transition-all">
-            <i className="ri-close-line text-xl" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!authLoading && (
+              user ? (
+                <button
+                  onClick={signOut}
+                  title="로그아웃"
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-500 text-gray-400 transition-all"
+                >
+                  <i className="ri-logout-box-r-line text-base" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 text-white text-[11px] font-black hover:bg-red-500 transition-all"
+                >
+                  <i className="ri-mail-line" /> 이메일 로그인
+                </button>
+              )
+            )}
+            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-gray-50 hover:bg-red-50 hover:text-red-500 transition-all">
+              <i className="ri-close-line text-xl" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
           {screen === 'list' && (
             <div className="p-6 space-y-3">
+              {/* 비로그인 유도 배너 */}
+              {!authLoading && !user && (
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl text-left group hover:from-red-600 hover:to-red-500 transition-all duration-300"
+                >
+                  <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl shrink-0">
+                    <i className="ri-mail-lock-line text-white text-lg" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-white">이메일로 로그인하면</p>
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">어떤 기기에서도 내 제보를 확인할 수 있습니다</p>
+                  </div>
+                  <i className="ri-arrow-right-line text-gray-500 group-hover:text-white transition-colors" />
+                </button>
+              )}
+
               {loading && (
                 <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-4">
                   <div className="w-8 h-8 border-2 border-gray-200 border-t-red-500 rounded-full animate-spin" />
@@ -425,7 +474,14 @@ export default function MyPageDrawer({ open, onClose, deviceToken }: Props) {
           )}
         </div>
 
-        {/* Toast */}
+        {/* Auth Modal */}
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={() => { setAuthModalOpen(false); fetchIssues() }}
+      />
+
+      {/* Toast */}
         {toast && (
           <div className="absolute bottom-6 left-6 right-6">
             <div className="bg-gray-900/95 backdrop-blur-xl text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 text-sm font-bold">
