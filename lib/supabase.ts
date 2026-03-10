@@ -1,32 +1,51 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+
+// 클라이언트 싱글톤 변수
+let supabaseInstance: SupabaseClient | null = null
+let supabaseAdminInstance: SupabaseClient | null = null
 
 /**
- * 일반 사용자용 클라이언트 (익명 키)
- * 브라우저 인증 세션을 유지합니다.
+ * 일반 사용자용 클라이언트 (싱글톤)
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storageKey: 'issuejustice-auth-token', // 명시적 키 지정으로 충돌 방지
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-})
+export const supabase = (() => {
+  if (supabaseInstance) return supabaseInstance
+  
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storageKey: 'issuejustice-auth-token',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  })
+  return supabaseInstance
+})()
 
 /**
- * 관리자용 클라이언트 (서비스 롤 키)
- * 서버 사이드 전용이며, 브라우저에서 사용할 경우 세션을 저장하지 않습니다.
+ * 관리자용 클라이언트 (서버 사이드 전용 싱글톤)
+ * 브라우저 환경에서는 생성을 차단하여 GoTrue 인스턴스 중복 경고 및 보안 위험을 방지합니다.
  */
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-    // 관리자 클라이언트는 별도의 저장소를 사용하거나 아예 사용하지 않도록 설정
-    storage: typeof window !== 'undefined' ? undefined : undefined 
+export const supabaseAdmin = (() => {
+  // 브라우저 환경이면 생성을 건너뛰거나 더미를 반환
+  if (typeof window !== 'undefined') return null as unknown as SupabaseClient
+
+  if (supabaseAdminInstance) return supabaseAdminInstance
+
+  if (!supabaseServiceRoleKey) {
+    console.warn('SUPABASE_SERVICE_ROLE_KEY is missing.')
+    return supabase as SupabaseClient
   }
-})
+
+  supabaseAdminInstance = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  })
+  return supabaseAdminInstance
+})()
