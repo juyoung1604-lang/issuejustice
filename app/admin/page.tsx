@@ -483,6 +483,34 @@ export default function AdminPage() {
   const [testEmailLoading, setTestEmailLoading] = useState(false)
   const [testEmailResult, setTestEmailResult] = useState<{ok?: boolean; error?: string} | null>(null)
 
+  // Email quota
+  type EmailQuota = {
+    todayCount: number
+    hourCount: number
+    freeLimit: number
+    workspaceLimit: number
+    freePct: number
+    workspacePct: number
+    recent: Array<{ email: string; sentAt: string }>
+    checkedAt: string
+  }
+  const [emailQuota, setEmailQuota] = useState<EmailQuota | null>(null)
+  const [quotaLoading, setQuotaLoading] = useState(false)
+
+  const checkEmailQuota = async () => {
+    setQuotaLoading(true)
+    try {
+      const res = await fetch('/api/admin/email-quota')
+      const data = await res.json()
+      if (res.ok) setEmailQuota(data)
+      else toast(data.error || '사용량 조회 실패', 'err')
+    } catch {
+      toast('네트워크 오류', 'err')
+    } finally {
+      setQuotaLoading(false)
+    }
+  }
+
   const sendTestEmail = async () => {
     if (!testEmailTo.trim()) return
     setTestEmailLoading(true)
@@ -497,6 +525,7 @@ export default function AdminPage() {
       if (res.ok) {
         setTestEmailResult({ ok: true })
         toast('테스트 이메일이 발송되었습니다.', 'ok')
+        checkEmailQuota() // 발송 후 사용량 자동 갱신
       } else {
         setTestEmailResult({ error: json.error || '발송 실패' })
         toast(json.error || '이메일 발송 실패', 'err')
@@ -1230,7 +1259,16 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="panel" style={{marginTop:'16px'}}>
-                  <div className="panel-head"><span className="panel-title">Gmail 메일 발송 테스트</span></div>
+                  <div className="panel-head">
+                    <span className="panel-title">Gmail 메일 발송 테스트</span>
+                    <button
+                      className="btn btn-t sm"
+                      onClick={checkEmailQuota}
+                      disabled={quotaLoading}
+                    >
+                      {quotaLoading ? '⟳ 확인 중...' : '📊 사용량 확인'}
+                    </button>
+                  </div>
                   <div className="panel-body">
                     <p style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)',marginBottom:'14px',lineHeight:1.8}}>
                       GMAIL_USER / GMAIL_APP_PASSWORD 환경변수 설정 후<br/>실제 OTP 이메일 발송을 테스트합니다.
@@ -1264,6 +1302,72 @@ export default function AdminPage() {
                     >
                       {testEmailLoading ? '⟳ 발송 중...' : '✉ 테스트 이메일 발송'}
                     </button>
+
+                    {/* 이메일 사용량 */}
+                    {quotaLoading && (
+                      <div className="loading" style={{marginTop:'14px'}}>⟳ 사용량 조회 중...</div>
+                    )}
+                    {emailQuota && !quotaLoading && (() => {
+                      const freePct = emailQuota.freePct
+                      const barColor = freePct < 60 ? 'var(--green)' : freePct < 85 ? 'var(--amber)' : 'var(--red)'
+                      return (
+                        <div style={{marginTop:'16px',borderTop:'1px solid var(--bdr2)',paddingTop:'14px'}}>
+                          <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'12px'}}>Gmail 일일 발송 사용량</div>
+
+                          {/* 프리 티어 기준 프로그레스바 */}
+                          <div style={{marginBottom:'12px'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'5px'}}>
+                              <span style={{fontSize:'11px',color:'var(--t1)'}}>
+                                오늘 발송 수 (Free 기준)
+                              </span>
+                              <span style={{fontFamily:'var(--f-mono)',fontSize:'11px',color: barColor}}>
+                                {emailQuota.todayCount} / {emailQuota.freeLimit}
+                              </span>
+                            </div>
+                            <div style={{background:'var(--bg3)',borderRadius:'4px',height:'6px',overflow:'hidden'}}>
+                              <div style={{width:`${freePct}%`,height:'100%',background: barColor,borderRadius:'4px',transition:'width 0.4s ease'}} />
+                            </div>
+                            <div style={{display:'flex',justifyContent:'space-between',marginTop:'4px'}}>
+                              <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>
+                                {freePct.toFixed(1)}% (Free: 500/일)
+                              </span>
+                              <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>
+                                Workspace: {emailQuota.workspaceLimit}/일 ({emailQuota.workspacePct.toFixed(1)}%)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 요약 수치 */}
+                          <div className="info-row">
+                            <span>이번 시간 발송</span>
+                            <span style={{fontFamily:'var(--f-mono)',color:'var(--t1)'}}>{emailQuota.hourCount}건</span>
+                          </div>
+                          <div className="info-row">
+                            <span>오늘 총 발송</span>
+                            <span style={{fontFamily:'var(--f-mono)',color: barColor}}>{emailQuota.todayCount}건</span>
+                          </div>
+                          <div className="info-row">
+                            <span>마지막 확인</span>
+                            <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>{new Date(emailQuota.checkedAt).toLocaleTimeString('ko-KR')}</span>
+                          </div>
+
+                          {/* 최근 발송 기록 */}
+                          {emailQuota.recent.length > 0 && (
+                            <div style={{marginTop:'12px'}}>
+                              <div style={{fontFamily:'var(--f-mono)',fontSize:'9px',letterSpacing:'2px',color:'var(--t2)',textTransform:'uppercase',marginBottom:'8px',paddingTop:'10px',borderTop:'1px solid var(--bdr2)'}}>최근 발송 기록</div>
+                              {emailQuota.recent.map((r, i) => (
+                                <div key={i} className="info-row">
+                                  <span style={{fontFamily:'var(--f-mono)',fontSize:'10px'}}>{r.email}</span>
+                                  <span style={{fontFamily:'var(--f-mono)',fontSize:'9px',color:'var(--t3)'}}>
+                                    {new Date(r.sentAt).toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
