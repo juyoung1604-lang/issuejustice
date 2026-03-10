@@ -247,17 +247,70 @@ export default function IssuesPage() {
         onClose={() => { setIsAttachmentViewerOpen(false); setActiveAttachment(null) }}
       />
 
-      {/* 푸터 */}
-      <footer className="bg-gray-900 text-white py-24 px-6 mt-32">
-        <div className="max-w-7xl mx-auto text-center space-y-8">
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-3 h-3 bg-red-500 rounded-full" />
-            <span className="text-3xl font-black tracking-tighter">시민신문고</span>
+      {/* 🌑 푸터 (다크 & 미니멀 - 메인 페이지와 통일) */}
+      <footer className="bg-gray-900 text-white py-16 md:py-24 px-6 relative overflow-hidden mt-32">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-16 relative z-10">
+          <div className="md:col-span-2 space-y-6 md:space-y-8 text-left">
+            <div className="flex items-center gap-3 justify-start">
+              <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />
+              <span className="text-2xl md:text-3xl font-black tracking-tighter">시민신문고</span>
+            </div>
+            <p className="text-gray-500 font-bold max-w-sm leading-relaxed text-sm md:text-base">
+              증거와 구조로 '상식'을 시각화합니다.<br />
+              개인의 분노가 아닌 데이터로 세상을 바꿉니다.
+            </p>
+            <div className="flex gap-4">
+              {["ri-facebook-fill", "ri-twitter-x-fill", "ri-instagram-line", "ri-youtube-fill"].map(icon => (
+                <a key={icon} href="#" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-red-500 transition-all duration-300">
+                  <i className={icon} />
+                </a>
+              ))}
+            </div>
           </div>
-          <p className="text-gray-500 font-bold max-w-sm mx-auto">
-            증거와 구조로 '상식'을 시각화합니다.<br />
-            © 2026 Citizen Justice. All Rights Reserved.
-          </p>
+          <div className="text-left">
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Platform</h4>
+            <ul className="space-y-3 md:space-y-4 font-bold text-xs md:text-sm text-gray-400">
+              {[
+                { label: "전체 이슈", href: "/issues" },
+                { label: "공감 랭킹", href: "/ranking" },
+                { label: "제보 가이드", href: "/guide" },
+                { label: "데이터 아카이브", href: "/archive" },
+              ].map(item => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white transition-colors transition-transform hover:translate-x-1 inline-block">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="text-left">
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] mb-6 md:mb-8">Information</h4>
+            <ul className="space-y-3 md:space-y-4 font-bold text-xs md:text-sm text-gray-400">
+              {[
+                { label: "운영 원칙", href: "/principles" },
+                { label: "개인정보 처리방침", href: "/privacy" },
+                { label: "이용 약관", href: "/terms" },
+                { label: "법률자문단 및 시민배심원", href: "/advisory" },
+              ].map(item => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white transition-colors transition-transform hover:translate-x-1 inline-block">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto mt-16 md:mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
+          <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2026 Citizen Justice. All Rights Reserved.</p>
+          <div className="flex items-center gap-6">
+            <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version 1.0.0-Beta</span>
+            <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-bold text-gray-400 uppercase">System Online</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
