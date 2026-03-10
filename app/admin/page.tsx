@@ -361,6 +361,42 @@ export default function AdminPage() {
   // Toggles
   const [toggles, setToggles] = useState({ accept:true, comment:true, guest:true, mask:true })
 
+  // 샘플 이슈 표시 설정
+  const [showSampleIssues, setShowSampleIssues] = useState(true)
+  const [sampleSettingLoading, setSampleSettingLoading] = useState(false)
+
+  const loadSampleSetting = async () => {
+    try {
+      const res = await fetch('/api/admin/settings')
+      const json = await res.json()
+      if (json.data?.show_sample_issues !== undefined) {
+        setShowSampleIssues(json.data.show_sample_issues !== 'false')
+      }
+    } catch { /* ignore */ }
+  }
+
+  const toggleSampleIssues = async () => {
+    setSampleSettingLoading(true)
+    const newVal = !showSampleIssues
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'show_sample_issues', value: String(newVal) }),
+      })
+      if (res.ok) {
+        setShowSampleIssues(newVal)
+        toast(newVal ? '샘플 이슈를 홈페이지에 표시합니다.' : '샘플 이슈를 홈페이지에서 숨겼습니다.', 'ok')
+      } else {
+        toast('설정 저장에 실패했습니다.', 'err')
+      }
+    } catch {
+      toast('네트워크 오류', 'err')
+    } finally {
+      setSampleSettingLoading(false)
+    }
+  }
+
   // Search/filter state for all issues tab
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -1020,7 +1056,7 @@ export default function AdminPage() {
 
         {/* SETTINGS */}
         {tab === 'settings' && (
-          <div className="tab-content">
+          <div className="tab-content" ref={el => { if (el) loadSampleSetting() }}>
             <div className="ph">
               <div><div className="ph-eyebrow">System</div><div className="ph-title">시스템 설정</div><div className="ph-sub">플랫폼 운영 설정을 관리합니다.</div></div>
               <div className="ph-actions"><button className="btn btn-t sm" onClick={() => toast('설정이 저장되었습니다.','ok')}>💾 저장</button></div>
@@ -1036,6 +1072,18 @@ export default function AdminPage() {
                         <button className={`toggle${toggles[k]?' on':''}`} onClick={()=>setToggles(t=>({...t,[k]:!t[k]}))} />
                       </div>
                     ))}
+                    <div className="tog-row">
+                      <div className="tog-info">
+                        <h4>샘플 이슈 표시</h4>
+                        <p>홈페이지에 데모용 샘플 사례 표시 여부 (정식 서비스 전환 시 끄세요)</p>
+                      </div>
+                      <button
+                        className={`toggle${showSampleIssues?' on':''}`}
+                        onClick={toggleSampleIssues}
+                        disabled={sampleSettingLoading}
+                        title={sampleSettingLoading ? '저장 중...' : ''}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="panel">

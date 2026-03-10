@@ -171,6 +171,7 @@ export default function HomePage() {
   const [supportedIds, setSupportedIds] = useState<string[]>([])
   const [issueFilter, setIssueFilter] = useState("전체")
   const [dbIssues, setDbIssues] = useState<ReturnType<typeof normalizeDbIssue>[]>([])
+  const [showSampleIssues, setShowSampleIssues] = useState(true)
   const [rankingPeriod, setRankingPeriod] = useState("주간")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [myPageOpen, setMyPageOpen] = useState(false)
@@ -188,20 +189,26 @@ export default function HomePage() {
   const [createdIssueId, setCreatedIssueId] = useState<string | null>(null)
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false)
 
-  // DB 공개 이슈 불러오기
+  // DB 공개 이슈 + 샘플 표시 설정 불러오기
   useEffect(() => {
     fetch('/api/issues')
       .then(r => r.json())
+      .then(json => { if (json.data) setDbIssues(json.data.map(normalizeDbIssue)) })
+      .catch(() => {})
+
+    fetch('/api/admin/settings')
+      .then(r => r.json())
       .then(json => {
-        if (json.data && json.data.length > 0) {
-          setDbIssues(json.data.map(normalizeDbIssue))
+        if (json.data?.show_sample_issues !== undefined) {
+          setShowSampleIssues(json.data.show_sample_issues !== 'false')
         }
       })
       .catch(() => {})
   }, [])
 
-  // 실제 표시 이슈: DB 이슈가 있으면 사용, 없으면 모의 데이터 폴백
-  const displayIssues = dbIssues.length > 0 ? dbIssues : ISSUES
+  // 실제 표시 이슈: DB 이슈 + (설정에 따라) 샘플 이슈
+  const sampleIssues = showSampleIssues ? ISSUES : []
+  const displayIssues = [...dbIssues, ...sampleIssues]
 
   // 애니메이션용 Observer
   useEffect(() => {
@@ -299,8 +306,7 @@ export default function HomePage() {
       }
 
       const issueId = issueParam
-      const allIssues = dbIssues.length > 0 ? dbIssues : ISSUES
-      const isValidIssue = allIssues.some(issue => issue.id === issueId)
+      const isValidIssue = [...dbIssues, ...ISSUES].some(issue => issue.id === issueId)
       if (!isValidIssue) {
         closeModal({ syncUrl: false })
         return
