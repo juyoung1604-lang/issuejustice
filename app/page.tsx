@@ -1129,7 +1129,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto mt-16 md:mt-24 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
           <p className="text-[10px] font-black text-gray-600 tracking-widest uppercase">© 2026 Citizen Justice. All Rights Reserved.</p>
           <div className="flex items-center gap-4 md:gap-6 flex-wrap justify-center">
-            <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version 1.0.0-Beta</span>
+            <span className="text-[10px] font-black text-gray-600 tracking-widest uppercase">Version {process.env.NEXT_PUBLIC_APP_VERSION ?? '?'}</span>
             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
               <span className="text-[10px] font-bold text-gray-400 uppercase">System Online</span>
