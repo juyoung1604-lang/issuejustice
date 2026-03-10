@@ -19,13 +19,23 @@ interface CommentItemProps {
   issueId: string
   onReplySubmit: (comment: Comment, parentId: string) => void
   depth?: number
+  isAuthor?: boolean
+  verifiedEmail?: string
 }
 
-export function CommentItem({ comment, issueId, onReplySubmit, depth = 0 }: CommentItemProps) {
+export function CommentItem({
+  comment,
+  issueId,
+  onReplySubmit,
+  depth = 0,
+  isAuthor = false,
+  verifiedEmail,
+}: CommentItemProps) {
   const [supported, setSupported] = useState(false)
   const [supportCount, setSupportCount] = useState(comment.support_count)
   const [showReply, setShowReply] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -51,6 +61,38 @@ export function CommentItem({ comment, issueId, onReplySubmit, depth = 0 }: Comm
     }
   }
 
+  const handleReport = async () => {
+    if (reporting) return
+    if (!verifiedEmail) {
+      alert('이메일 인증이 필요합니다.')
+      return
+    }
+
+    const reason = window.prompt('신고 사유를 입력해 주세요 (예: 허위사실, 욕설 등):')
+    if (!reason || !reason.trim()) return
+
+    setReporting(true)
+    try {
+      const res = await fetch(`/api/comments/${comment.id}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueId, reporterEmail: verifiedEmail, reason }),
+      })
+
+      const data = await res.json()
+      if (data.ok) {
+        alert('신고가 접수되었습니다. 처리 결과는 내 제보창에서 확인하실 수 있습니다.')
+      } else {
+        alert(data.error || '신고 등록 중 오류가 발생했습니다.')
+      }
+    } catch (err) {
+      console.error('Report failed:', err)
+      alert('서버 오류로 신고에 실패했습니다.')
+    } finally {
+      setReporting(false)
+    }
+  }
+
   const isOfficialComment = comment.type === '운영자코멘트'
 
   return (
@@ -72,9 +114,21 @@ export function CommentItem({ comment, issueId, onReplySubmit, depth = 0 }: Comm
               {isOfficialComment ? '🔔 운영자' : comment.author_nickname}
             </span>
           </div>
-          <time className="text-xs text-slate-400 whitespace-nowrap">
-            {timeAgo(comment.created_at)}
-          </time>
+          <div className="flex items-center gap-3">
+            {isAuthor && verifiedEmail && (
+              <button
+                onClick={handleReport}
+                disabled={reporting}
+                className="text-[11px] font-medium text-red-500 hover:text-red-600 transition-colors flex items-center gap-1"
+              >
+                <i className="ri-alert-line" />
+                신고하기
+              </button>
+            )}
+            <time className="text-xs text-slate-400 whitespace-nowrap">
+              {timeAgo(comment.created_at)}
+            </time>
+          </div>
         </div>
 
         {/* 본문 */}
@@ -133,6 +187,8 @@ export function CommentItem({ comment, issueId, onReplySubmit, depth = 0 }: Comm
               issueId={issueId}
               onReplySubmit={onReplySubmit}
               depth={depth + 1}
+              isAuthor={isAuthor}
+              verifiedEmail={verifiedEmail}
             />
           ))}
         </div>

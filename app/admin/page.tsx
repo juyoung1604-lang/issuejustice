@@ -399,13 +399,29 @@ export default function AdminPage() {
   const saveSnsLinks = async () => {
     setSnsSaving(true)
     try {
-      await Promise.all([
-        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_facebook',  value: snsLinks.facebook  }) }),
-        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_twitter',   value: snsLinks.twitter   }) }),
-        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_instagram', value: snsLinks.instagram }) }),
-        fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'sns_youtube',   value: snsLinks.youtube   }) }),
-      ])
-      toast('SNS 계정이 저장되었습니다.', 'ok')
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entries: {
+            sns_facebook: snsLinks.facebook,
+            sns_twitter: snsLinks.twitter,
+            sns_instagram: snsLinks.instagram,
+            sns_youtube: snsLinks.youtube,
+          },
+        }),
+      })
+      if (res.ok) {
+        toast('SNS 계정이 저장되었습니다.', 'ok')
+        await loadSampleSetting()
+      } else {
+        let message = ''
+        try {
+          const json = await res.json()
+          message = json?.error || ''
+        } catch { /* ignore */ }
+        toast(message ? `SNS 저장 실패: ${message}` : 'SNS 계정 저장에 실패했습니다.', 'err')
+      }
     } catch {
       toast('저장 중 오류가 발생했습니다.', 'err')
     } finally {
@@ -423,12 +439,16 @@ export default function AdminPage() {
       if (json.data?.chat_banned_words) {
         setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
       }
-      setSnsLinks({
-        facebook:  json.data?.sns_facebook  ?? '',
-        twitter:   json.data?.sns_twitter   ?? '',
-        instagram: json.data?.sns_instagram ?? '',
-        youtube:   json.data?.sns_youtube   ?? '',
-      })
+      
+      // 값이 존재하는 경우에만 SNS 링크를 설정합니다.
+      const newSnsLinks = { ...snsLinks }
+      let changed = false
+      if (json.data?.sns_facebook !== undefined) { newSnsLinks.facebook = json.data.sns_facebook; changed = true }
+      if (json.data?.sns_twitter !== undefined)  { newSnsLinks.twitter = json.data.sns_twitter; changed = true }
+      if (json.data?.sns_instagram !== undefined){ newSnsLinks.instagram = json.data.sns_instagram; changed = true }
+      if (json.data?.sns_youtube !== undefined)  { newSnsLinks.youtube = json.data.sns_youtube; changed = true }
+      
+      if (changed) setSnsLinks(newSnsLinks)
     } catch { /* ignore */ }
   }
 
@@ -595,8 +615,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     setIsLoading(true)
-    Promise.all([loadPending(), loadAll()]).finally(() => setIsLoading(false))
-  }, [loadPending, loadAll])
+    Promise.all([
+      loadPending(),
+      loadAll(),
+      loadSampleSetting() // 마운트 시 한 번만 불러오도록 추가
+    ]).finally(() => setIsLoading(false))
+  }, [loadPending, loadAll]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadAdvisory = useCallback(async (typeF?: string, statusF?: string) => {
     setAdvisoryLoading(true)
@@ -608,8 +632,16 @@ export default function AdminPage() {
       if (s) params.set('status', s)
       const res = await fetch(`/api/advisory?${params.toString()}`)
       const json = await res.json()
-      if (json.data) setAdvisoryList(json.data)
-    } catch { /* ignore */ } finally {
+      if (!res.ok) {
+        setAdvisoryList([])
+        toast(json.error || '신청 목록을 불러오지 못했습니다.', 'err')
+        return
+      }
+      setAdvisoryList(Array.isArray(json.data) ? json.data : [])
+    } catch {
+      setAdvisoryList([])
+      toast('신청 목록 조회 중 네트워크 오류가 발생했습니다.', 'err')
+    } finally {
       setAdvisoryLoading(false)
     }
   }, [advisoryTypeFilter, advisoryStatusFilter])
@@ -835,7 +867,13 @@ export default function AdminPage() {
           <div key={g.group} className="nav-grp">
             <div className="nav-grp-lbl">{g.group}</div>
             {g.items.map((item: any) => (
-              <button key={item.id} className={`nav-btn${tab === item.id ? ' active' : ''}`} onClick={() => { setTab(item.id as Tab); setIsMenuOpen(false); }}>
+              <button key={item.id} className={`nav-btn${tab === item.id ? ' active' : ''}`} onClick={() => {
+                const nextTab = item.id as Tab
+                setTab(nextTab)
+                setIsMenuOpen(false)
+                if (nextTab === 'advisory') void loadAdvisory()
+
+              }}>
                 <span className="nav-ico">{item.ico}</span>{item.label}
                 {item.badge > 0 && <span className={`nav-badge ${item.bc}`}>{item.badge}</span>}
               </button>
@@ -1207,7 +1245,7 @@ export default function AdminPage() {
 
         {/* SETTINGS */}
         {tab === 'settings' && (
-          <div className="tab-content" ref={el => { if (el) loadSampleSetting() }}>
+          <div className="tab-content">
             <div className="ph">
               <div><div className="ph-eyebrow">System</div><div className="ph-title">시스템 설정</div><div className="ph-sub">플랫폼 운영 설정을 관리합니다.</div></div>
               <div className="ph-actions"><button className="btn btn-t sm" onClick={() => toast('설정이 저장되었습니다.','ok')}>💾 저장</button></div>
@@ -1621,7 +1659,7 @@ export default function AdminPage() {
 
         {/* ADVISORY */}
         {tab === 'advisory' && (
-          <div className="tab-content" ref={el => { if (el) loadAdvisory() }}>
+          <div className="tab-content">
             <div className="ph">
               <div>
                 <div className="ph-eyebrow">Content</div>

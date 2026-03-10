@@ -1,6 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { CommentList } from './CommentList'
+
+interface CommentReport {
+  id: string
+  comment_id: string
+  reason: string
+  status: '검토중' | '처리완료' | '기각'
+  admin_note?: string
+  created_at: string
+  comment?: {
+    content: string
+    author_nickname: string
+  }
+}
 
 interface MyIssue {
   id: string
@@ -15,6 +29,7 @@ interface MyIssue {
   created_at: string
   region: string
   enforcement_type: string
+  comment_reports?: CommentReport[]
 }
 
 interface Props {
@@ -78,7 +93,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   const fetchIssues = useCallback(async (emailOverride?: string) => {
     const email = emailOverride ?? verifiedEmail
     const token = submitterToken
-    if (!email && !token) return
+    if (!email && !token) return []
     setLoading(true)
     try {
       const url = email
@@ -86,9 +101,14 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         : `/api/my-issues?token=${token}`
       const res = await fetch(url)
       const json = await res.json()
-      if (json.data) setIssues(json.data)
+      if (json.data) {
+        setIssues(json.data)
+        return json.data as MyIssue[]
+      }
+      return []
     } catch {
       showToast('목록을 불러오지 못했습니다.')
+      return []
     } finally {
       setLoading(false)
     }
@@ -134,8 +154,8 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         showToast('보완 내용이 추가되었습니다.')
         setActiveAction(null)
         setSupplementText('')
-        await fetchIssues()
-        const updated = issues.find(i => i.id === selectedIssue.id)
+        const freshIssues = await fetchIssues()
+        const updated = freshIssues.find(i => i.id === selectedIssue.id)
         if (updated) setSelectedIssue(updated)
       } else {
         showToast(json.error || '오류가 발생했습니다.')
@@ -160,7 +180,9 @@ export default function MyPageDrawer({ open, onClose }: Props) {
       if (json.ok) {
         showToast('내용이 수정되었습니다.')
         setActiveAction(null)
-        await fetchIssues()
+        const freshIssues = await fetchIssues()
+        const updated = freshIssues.find(i => i.id === selectedIssue.id)
+        if (updated) setSelectedIssue(updated)
       } else {
         showToast(json.error || '오류가 발생했습니다.')
       }
@@ -538,6 +560,56 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                   <div className="text-sm text-gray-600 font-medium leading-relaxed bg-blue-50 p-4 rounded-2xl border border-blue-100 whitespace-pre-wrap">
                     {selectedIssue.supplement_note}
                   </div>
+                </div>
+              )}
+
+              {/* Comment Reports */}
+              {selectedIssue.comment_reports && selectedIssue.comment_reports.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1 h-4 bg-red-500 rounded-full" /> 댓글 신고 현황
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedIssue.comment_reports.map(report => (
+                      <div key={report.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                            report.status === '처리완료' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            report.status === '기각' ? 'bg-gray-50 text-gray-400 border-gray-100' :
+                            'bg-red-50 text-red-500 border-red-100'
+                          }`}>
+                            {report.status}
+                          </span>
+                          <span className="text-[10px] text-gray-300 font-bold">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2 line-clamp-1 italic">
+                          "{(report.comment?.content || '삭제된 댓글')}"
+                        </p>
+                        <p className="text-sm text-gray-700 font-bold mb-1">신고 사유: {report.reason}</p>
+                        {report.admin_note && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500 border-l-2 border-gray-200">
+                            <strong>처리 결과:</strong> {report.admin_note}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Comment List (only if published) */}
+              {selectedIssue.is_published && (
+                <div className="pt-6 border-t border-gray-100">
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                    <span className="w-1 h-4 bg-gray-400 rounded-full" /> 제보 댓글 관리
+                  </h4>
+                  <CommentList
+                    issueId={selectedIssue.id}
+                    isAuthor={true}
+                    verifiedEmail={verifiedEmail || undefined}
+                  />
                 </div>
               )}
 

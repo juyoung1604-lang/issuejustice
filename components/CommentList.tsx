@@ -10,9 +10,16 @@ import type { Comment } from '@/types'
 interface CommentListProps {
   issueId: string
   initialComments?: Comment[]
+  isAuthor?: boolean
+  verifiedEmail?: string
 }
 
-export function CommentList({ issueId, initialComments }: CommentListProps) {
+export function CommentList({
+  issueId,
+  initialComments,
+  isAuthor = false,
+  verifiedEmail,
+}: CommentListProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments ?? [])
   const [sort, setSort] = useState<'support_count' | 'latest'>('support_count')
   const [loading, setLoading] = useState(!initialComments)
@@ -97,6 +104,8 @@ export function CommentList({ issueId, initialComments }: CommentListProps) {
               comment={comment}
               issueId={issueId}
               onReplySubmit={handleReplySubmit}
+              isAuthor={isAuthor}
+              verifiedEmail={verifiedEmail}
             />
           ))}
         </div>
