@@ -18,6 +18,22 @@ const NICKNAME_STORAGE_KEY = 'issuejustice_live_chat_nickname'
 const MAX_MESSAGE_LENGTH = 300
 const MAX_MESSAGES = 200
 
+function applyWordFilter(text: string, words: string[]): { result: string; filtered: boolean } {
+  let result = text
+  let filtered = false
+  for (const word of words) {
+    const w = word.trim()
+    if (!w) continue
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(escaped, 'gi')
+    if (re.test(result)) {
+      filtered = true
+      result = result.replace(re, '****')
+    }
+  }
+  return { result, filtered }
+}
+
 const NICKNAME_COLORS = [
   '#ef4444',
   '#f97316',
@@ -58,6 +74,7 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [error, setError] = useState('')
   const [hydrated, setHydrated] = useState(false)
+  const [bannedWords, setBannedWords] = useState<string[]>([])
   const listRef = useRef<HTMLDivElement>(null)
 
   const storageKey = useMemo(() => getStorageKey(issueId), [issueId])
@@ -75,6 +92,17 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
     } catch {
       // noop
     }
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data?.chat_banned_words) {
+          setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
+        }
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -133,10 +161,12 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
       return
     }
 
+    const { result: filteredMessage } = applyWordFilter(normalizedMessage.slice(0, MAX_MESSAGE_LENGTH), bannedWords)
+
     const newMessage: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       nickname: normalizedNickname.slice(0, 20),
-      message: normalizedMessage.slice(0, MAX_MESSAGE_LENGTH),
+      message: filteredMessage,
       createdAt: new Date().toISOString(),
     }
 
@@ -163,18 +193,26 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
             <p className="text-xs mt-1">첫 메시지로 대화를 시작해 보세요.</p>
           </div>
         ) : (
-          messages.map(message => (
-            <div key={message.id} className="text-sm leading-relaxed">
-              <span
-                className="font-black mr-2"
-                style={{ color: getNicknameColor(message.nickname) }}
-              >
-                {message.nickname}
-              </span>
-              <span className="text-gray-100 break-words">{message.message}</span>
-              <span className="text-[10px] text-gray-500 ml-2">{formatTime(message.createdAt)}</span>
-            </div>
-          ))
+          messages.map(message => {
+            const { result: displayMsg, filtered } = applyWordFilter(message.message, bannedWords)
+            return (
+              <div key={message.id} className="text-sm leading-relaxed">
+                <span
+                  className="font-black mr-2"
+                  style={{ color: getNicknameColor(message.nickname) }}
+                >
+                  {message.nickname}
+                </span>
+                <span className="text-gray-100 break-words">{displayMsg}</span>
+                <span className="text-[10px] text-gray-500 ml-2">{formatTime(message.createdAt)}</span>
+                {filtered && (
+                  <span className="ml-2 text-[9px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                    ⚠ 일부 표현 필터링됨
+                  </span>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
 
@@ -217,6 +255,9 @@ export default function IssueChatPanel({ issueId }: IssueChatPanelProps) {
           <p className="text-[9px] md:text-[11px] font-bold text-gray-500">{draft.length}/{MAX_MESSAGE_LENGTH}</p>
           {error && <p className="text-[9px] md:text-[11px] font-bold text-red-400 break-words">{error}</p>}
         </div>
+        {bannedWords.length > 0 && (
+          <p className="text-[9px] font-bold text-gray-600 mt-1">⚠ 부적절한 표현은 자동으로 ****로 표시됩니다.</p>
+        )}
       </div>
     </section>
   )

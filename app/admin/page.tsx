@@ -15,7 +15,7 @@ const CSS = `
   --red:#e04848;--redD:rgba(224,72,72,.10);
   --blue:#3a8ad4;--blueD:rgba(58,138,212,.10);
   --green:#2ec98a;--greenD:rgba(46,201,138,.10);
-  --t0:#d8eaf8;--t1:#6a9ab8;--t2:#2e4a62;--t3:#152233;
+  --t0:#ffffff;--t1:#ffffff;--t2:#ffffff;--t3:#ffffff;
   --f-mono:'IBM Plex Mono',monospace;
   --f-sans:'Noto Sans KR',sans-serif;
   --sw:220px;--th:52px;
@@ -365,6 +365,11 @@ export default function AdminPage() {
   const [showSampleIssues, setShowSampleIssues] = useState(true)
   const [sampleSettingLoading, setSampleSettingLoading] = useState(false)
 
+  // 댓글 필터링 단어 관리
+  const [bannedWords, setBannedWords] = useState<string[]>([])
+  const [newFilterWord, setNewFilterWord] = useState('')
+  const [filterSaving, setFilterSaving] = useState(false)
+
   const loadSampleSetting = async () => {
     try {
       const res = await fetch('/api/admin/settings')
@@ -372,7 +377,38 @@ export default function AdminPage() {
       if (json.data?.show_sample_issues !== undefined) {
         setShowSampleIssues(json.data.show_sample_issues !== 'false')
       }
+      if (json.data?.chat_banned_words) {
+        setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
+      }
     } catch { /* ignore */ }
+  }
+
+  const addFilterWord = () => {
+    const word = newFilterWord.trim()
+    if (!word || bannedWords.includes(word)) { setNewFilterWord(''); return }
+    setBannedWords(prev => [...prev, word])
+    setNewFilterWord('')
+  }
+
+  const removeFilterWord = (word: string) => {
+    setBannedWords(prev => prev.filter(w => w !== word))
+  }
+
+  const saveFilterWords = async () => {
+    setFilterSaving(true)
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'chat_banned_words', value: bannedWords.join(',') }),
+      })
+      if (res.ok) toast('필터링 단어 목록이 저장되었습니다.', 'ok')
+      else toast('저장 실패', 'err')
+    } catch {
+      toast('네트워크 오류', 'err')
+    } finally {
+      setFilterSaving(false)
+    }
   }
 
   const toggleSampleIssues = async () => {
@@ -1091,6 +1127,47 @@ export default function AdminPage() {
                   <div className="panel-body">
                     <div className="fg"><label className="flbl">관리자 이메일</label><input className="finput" type="email" defaultValue="admin@sinmungo.kr" /></div>
                     <div className="fg"><label className="flbl">알림 임계값 (추천 수)</label><input className="finput" type="number" defaultValue={500} placeholder="이 수치 이상 시 알림" /></div>
+                  </div>
+                </div>
+                <div className="panel" style={{marginTop:'16px'}}>
+                  <div className="panel-head"><span className="panel-title">댓글 필터링 단어 관리</span></div>
+                  <div className="panel-body">
+                    <p style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)',marginBottom:'14px',lineHeight:1.8}}>
+                      라이브 채팅에서 자동으로 <span style={{color:'var(--amber)'}}>****</span>로 치환될 단어/표현을 등록합니다.<br/>
+                      단어를 추가한 후 반드시 저장 버튼을 눌러 적용하세요.
+                    </p>
+                    {/* 현재 등록된 단어 목록 */}
+                    <div style={{display:'flex',flexWrap:'wrap',gap:'6px',minHeight:'36px',marginBottom:'14px',padding:'10px',background:'var(--bg2)',borderRadius:'6px',border:'1px solid var(--bdr)'}}>
+                      {bannedWords.length === 0 ? (
+                        <span style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t3)',alignSelf:'center'}}>등록된 필터링 단어가 없습니다</span>
+                      ) : bannedWords.map(word => (
+                        <span key={word} style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'3px 8px',background:'var(--redD)',border:'1px solid rgba(224,72,72,.3)',borderRadius:'3px',fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--red)'}}>
+                          {word}
+                          <button onClick={() => removeFilterWord(word)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--red)',fontSize:'12px',lineHeight:1,padding:'0',fontWeight:700}} title="삭제">×</button>
+                        </span>
+                      ))}
+                    </div>
+                    {/* 단어 추가 */}
+                    <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
+                      <input
+                        className="finput"
+                        style={{flex:1}}
+                        type="text"
+                        placeholder="차단할 단어 또는 표현 입력"
+                        value={newFilterWord}
+                        onChange={e => setNewFilterWord(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addFilterWord()}
+                      />
+                      <button className="btn btn-t sm" onClick={addFilterWord} disabled={!newFilterWord.trim()}>+ 추가</button>
+                    </div>
+                    <button
+                      className="btn btn-t sm"
+                      style={{width:'100%',justifyContent:'center'}}
+                      onClick={saveFilterWords}
+                      disabled={filterSaving}
+                    >
+                      {filterSaving ? '⟳ 저장 중...' : '💾 필터링 단어 저장'}
+                    </button>
                   </div>
                 </div>
                 <div className="panel" style={{marginTop:'16px'}}>
