@@ -375,21 +375,21 @@ export default function HomePage() {
       </header>
 
       {/* 🚀 히어로 섹션 (역동적인 타이포그래피) */}
-      <section id="hero" className="relative pt-32 pb-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
+      <section id="hero" className="relative pt-32 pb-20 px-6 sm:px-8 overflow-hidden bg-gradient-to-b from-white to-[#F8F7F4]">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8 fade-in text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-[10px] md:text-xs font-bold tracking-widest uppercase">
               <span className="w-1 h-1 bg-red-600 rounded-full animate-pulse" /> 시민 공론 플랫폼
             </div>
-            <h1 className="text-7xl sm:text-7xl md:text-9xl font-black leading-[0.9] tracking-tighter text-gray-900 break-keep">
+            <h1 className="text-5xl sm:text-6xl md:text-9xl font-black leading-[1.2] tracking-tighter text-gray-900 break-keep">
               상식을<br />기록하면<br /><span className="text-red-500">세상이<br className="sm:hidden" /> 바뀐다</span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-[90%] sm:max-w-lg font-medium break-keep">
+            <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed max-w-full sm:max-w-lg font-medium break-keep pr-2">
               불합리한 법집행 사례를 증거와 구조로 기록하고,
               시민의 지지와 공감으로 공론화합니다.
             </p>
             
-            <div className="flex flex-wrap justify-start gap-x-6 gap-y-4 py-4 border-y border-gray-100">
+            <div className="flex flex-wrap justify-start gap-x-6 gap-y-4 py-4 border-y border-gray-100 max-w-full">
               {[["등록 이슈", STATS.totalIssues], ["누적 공감", "18.4k"], ["해결 사례", STATS.resolvedCases]].map(([label, val]) => (
                 <div key={label as string} className="min-w-fit">
                   <div className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">{val}</div>
@@ -398,11 +398,11 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-start w-full sm:w-auto pr-4 sm:pr-0">
-              <button onClick={() => scrollToSection("register")} className="w-full sm:w-auto px-5 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 justify-start w-full sm:w-auto">
+              <button onClick={() => scrollToSection("register")} className="w-full sm:w-auto px-6 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center gap-2">
                 지금 이슈 제보하기 <i className="ri-arrow-right-line" />
               </button>
-              <button onClick={() => scrollToSection("issues")} className="w-full sm:w-auto px-5 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center">
+              <button onClick={() => scrollToSection("issues")} className="w-full sm:w-auto px-6 py-4 bg-white border-2 border-gray-200 text-gray-900 font-bold rounded-2xl hover:border-gray-900 transition-all duration-300 text-base sm:text-lg active:scale-95 flex items-center justify-center">
                 실시간 이슈 보기
               </button>
             </div>
