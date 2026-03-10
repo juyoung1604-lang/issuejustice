@@ -553,7 +553,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {filteredIssues.map((issue, idx) => (
+            {filteredIssues.slice(0, 6).map((issue, idx) => (
               <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in bg-white rounded-[2rem] p-6 md:p-8 border border-gray-50 smooth-shadow hover:smooth-shadow-xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col h-full" style={{ transitionDelay: `${idx * 100}ms` }}>
                 <div className="flex items-center justify-between mb-6 md:mb-8">
                   <span className={`px-3 py-1 rounded-lg text-[10px] font-black border uppercase tracking-wider ${getStatusStyle(issue.status)}`}>
@@ -578,6 +578,13 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-16 text-center fade-in">
+            <Link href="/issues" className="inline-flex items-center gap-3 px-10 py-5 bg-gray-900 text-white font-black rounded-2xl hover:bg-red-500 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
+              전체 사례보기
+              <i className="ri-arrow-right-line group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
         </div>
       </section>
