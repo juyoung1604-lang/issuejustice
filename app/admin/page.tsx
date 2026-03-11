@@ -392,6 +392,29 @@ export default function AdminPage() {
   const [advisoryDetail, setAdvisoryDetail] = useState<AdvisoryApplication | null>(null)
   const [advisoryNote, setAdvisoryNote] = useState('')
 
+  // 관리자 이메일
+  const [adminEmail, setAdminEmail] = useState('admin@sinmungo.kr')
+  const [adminEmailSaving, setAdminEmailSaving] = useState(false)
+
+  const saveAdminEmail = async () => {
+    const trimmed = adminEmail.trim()
+    if (!trimmed) { toast('이메일을 입력해 주세요.', 'err'); return }
+    setAdminEmailSaving(true)
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'admin_email', value: trimmed }),
+      })
+      if (res.ok) toast('관리자 이메일이 저장되었습니다.', 'ok')
+      else toast('저장에 실패했습니다.', 'err')
+    } catch {
+      toast('네트워크 오류가 발생했습니다.', 'err')
+    } finally {
+      setAdminEmailSaving(false)
+    }
+  }
+
   // SNS 계정 관리
   const [snsLinks, setSnsLinks] = useState({ facebook: '', twitter: '', instagram: '', youtube: '' })
   const [snsSaving, setSnsSaving] = useState(false)
@@ -413,7 +436,6 @@ export default function AdminPage() {
       })
       if (res.ok) {
         toast('SNS 계정이 저장되었습니다.', 'ok')
-        await loadSampleSetting()
       } else {
         let message = ''
         try {
@@ -439,16 +461,17 @@ export default function AdminPage() {
       if (json.data?.chat_banned_words) {
         setBannedWords(json.data.chat_banned_words.split(',').map((w: string) => w.trim()).filter(Boolean))
       }
+      if (json.data?.admin_email) {
+        setAdminEmail(json.data.admin_email)
+      }
       
-      // 값이 존재하는 경우에만 SNS 링크를 설정합니다.
-      const newSnsLinks = { ...snsLinks }
-      let changed = false
-      if (json.data?.sns_facebook !== undefined) { newSnsLinks.facebook = json.data.sns_facebook; changed = true }
-      if (json.data?.sns_twitter !== undefined)  { newSnsLinks.twitter = json.data.sns_twitter; changed = true }
-      if (json.data?.sns_instagram !== undefined){ newSnsLinks.instagram = json.data.sns_instagram; changed = true }
-      if (json.data?.sns_youtube !== undefined)  { newSnsLinks.youtube = json.data.sns_youtube; changed = true }
-      
-      if (changed) setSnsLinks(newSnsLinks)
+      // 함수형 업데이터 사용 — stale closure 없이 항상 최신 prev 기준으로 병합
+      setSnsLinks(prev => ({
+        facebook:  json.data?.sns_facebook  !== undefined ? json.data.sns_facebook  : prev.facebook,
+        twitter:   json.data?.sns_twitter   !== undefined ? json.data.sns_twitter   : prev.twitter,
+        instagram: json.data?.sns_instagram !== undefined ? json.data.sns_instagram : prev.instagram,
+        youtube:   json.data?.sns_youtube   !== undefined ? json.data.sns_youtube   : prev.youtube,
+      }))
     } catch { /* ignore */ }
   }
 
@@ -1278,7 +1301,27 @@ export default function AdminPage() {
                 <div className="panel">
                   <div className="panel-head"><span className="panel-title">알림 설정</span></div>
                   <div className="panel-body">
-                    <div className="fg"><label className="flbl">관리자 이메일</label><input className="finput" type="email" defaultValue="admin@sinmungo.kr" /></div>
+                    <div className="fg">
+                      <label className="flbl">관리자 이메일</label>
+                      <div style={{display:'flex',gap:'8px'}}>
+                        <input
+                          className="finput"
+                          style={{flex:1}}
+                          type="text"
+                          placeholder="admin@example.com"
+                          value={adminEmail}
+                          onChange={e => setAdminEmail(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && saveAdminEmail()}
+                        />
+                        <button
+                          className="btn btn-t sm"
+                          onClick={saveAdminEmail}
+                          disabled={adminEmailSaving}
+                        >
+                          {adminEmailSaving ? '⟳' : '저장'}
+                        </button>
+                      </div>
+                    </div>
                     <div className="fg"><label className="flbl">알림 임계값 (추천 수)</label><input className="finput" type="number" defaultValue={500} placeholder="이 수치 이상 시 알림" /></div>
                   </div>
                 </div>
@@ -1480,7 +1523,7 @@ export default function AdminPage() {
                       </label>
                       <input
                         className="finput"
-                        type="url"
+                        type="text"
                         placeholder={`https://www.${key === 'twitter' ? 'x' : key}.com/...`}
                         value={snsLinks[key]}
                         onChange={e => setSnsLinks(prev => ({ ...prev, [key]: e.target.value }))}
