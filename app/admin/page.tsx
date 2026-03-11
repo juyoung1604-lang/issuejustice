@@ -27,6 +27,25 @@ body{background:var(--bg0);color:var(--t0);font-family:var(--f-sans);font-weight
 ::-webkit-scrollbar-track{background:var(--bg1);}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
 
+/* LEVEL BADGES */
+.lv-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:2px;font-family:var(--f-mono);font-size:10px;font-weight:700;letter-spacing:.5px;}
+.lv1{background:rgba(150,150,150,.12);color:#9aa0ac;border:1px solid rgba(150,150,150,.25);}
+.lv2{background:rgba(58,138,212,.12);color:var(--blue);border:1px solid rgba(58,138,212,.25);}
+.lv3{background:rgba(240,165,0,.12);color:var(--amber);border:1px solid rgba(240,165,0,.25);}
+.lv4{background:rgba(224,72,72,.12);color:var(--red);border:1px solid rgba(224,72,72,.25);}
+.lv-sel{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.lv-opt{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--bdr2);background:var(--bg2);cursor:pointer;border-radius:3px;transition:all .15s;}
+.lv-opt:hover{border-color:var(--bdr2);background:var(--bg3);}
+.lv-opt.sel{border-color:var(--teal);background:var(--tealD);}
+.lv-opt-info{flex:1;}
+.lv-opt-name{font-size:12px;font-weight:600;color:var(--t0);margin-bottom:2px;}
+.lv-opt-desc{font-size:10px;color:var(--t2);line-height:1.5;}
+.member-row{display:grid;grid-template-columns:1fr 80px 100px 90px 80px;gap:0;align-items:center;padding:10px 14px;border-bottom:1px solid var(--bdr2);cursor:pointer;transition:background .12s;}
+.member-row:hover{background:var(--bg2);}
+.member-head{font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;padding:8px 14px;border-bottom:1px solid var(--bdr2);display:grid;grid-template-columns:1fr 80px 100px 90px 80px;}
+.member-email{font-size:11px;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.member-sub{font-family:var(--f-mono);font-size:9px;color:var(--t3);margin-top:2px;}
+
 /* TOPBAR */
 #tb{position:fixed;top:0;left:0;right:0;height:var(--th);z-index:200;background:var(--bg1);border-bottom:1px solid var(--bdr2);display:flex;align-items:center;}
 .tb-brand{width:var(--sw);height:100%;display:flex;align-items:center;gap:10px;padding:0 18px;border-right:1px solid var(--bdr2);flex-shrink:0;}
@@ -310,7 +329,7 @@ const REPORTS_DATA = [
   {id:'r3',type:'비방·욕설',title:'교통 단속 민원',reason:'댓글에 특정인에 대한 욕설이 포함되어 있어 신고합니다.',reporter:'user_h4t3',time:'5시간 전'},
 ]
 
-type Tab = 'dashboard'|'pending'|'all'|'statusmgmt'|'files'|'comments'|'reports'|'analytics'|'settings'|'advisory'
+type Tab = 'dashboard'|'pending'|'all'|'statusmgmt'|'files'|'comments'|'reports'|'analytics'|'settings'|'advisory'|'members'
 
 interface Issue {
   id: string
@@ -391,6 +410,71 @@ export default function AdminPage() {
   const [advisoryStatusFilter, setAdvisoryStatusFilter] = useState('')
   const [advisoryDetail, setAdvisoryDetail] = useState<AdvisoryApplication | null>(null)
   const [advisoryNote, setAdvisoryNote] = useState('')
+
+  // 회원 관리
+  interface MemberUser {
+    id: string
+    email: string
+    level: number
+    display_name: string | null
+    created_at: string
+    updated_at: string
+    last_sign_in_at: string | null
+    email_confirmed_at: string | null
+  }
+  const [members, setMembers] = useState<MemberUser[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [memberSetupSql, setMemberSetupSql] = useState('')
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberLevelFilter, setMemberLevelFilter] = useState(0)
+  const [memberModal, setMemberModal] = useState<MemberUser | null>(null)
+  const [memberNewLevel, setMemberNewLevel] = useState(1)
+  const [memberSaving, setMemberSaving] = useState(false)
+
+  const LEVEL_META = [
+    { level: 1, name: '1단계 · 제안자', cls: 'lv1', desc: '이메일 로그인 후 이슈 제안, 자신의 글 수정, 댓글 신고 가능' },
+    { level: 2, name: '2단계 · 패널', cls: 'lv2', desc: '법률자문단·시민배심원 권한 — 이슈 검토·승인·의견 첨부 가능' },
+    { level: 3, name: '3단계 · 관리자', cls: 'lv3', desc: '전체 정보 및 모든 관리 기능 사용 가능' },
+    { level: 4, name: '4단계 · 마스터', cls: 'lv4', desc: '시스템·홈페이지 전체 운영 및 마스터 권한' },
+  ]
+
+  const loadMembers = async () => {
+    setMembersLoading(true)
+    try {
+      const res = await fetch('/api/admin/users')
+      const json = await res.json()
+      if (json.setupSql) setMemberSetupSql(json.setupSql)
+      setMembers(Array.isArray(json.data) ? json.data : [])
+    } catch { toast('회원 목록을 불러오지 못했습니다.', 'err') }
+    finally { setMembersLoading(false) }
+  }
+
+  const saveMemberLevel = async () => {
+    if (!memberModal) return
+    setMemberSaving(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: memberModal.id, level: memberNewLevel }),
+      })
+      if (res.ok) {
+        setMembers(prev => prev.map(m => m.id === memberModal.id ? { ...m, level: memberNewLevel } : m))
+        toast(`${memberModal.email} 레벨을 ${memberNewLevel}단계로 변경했습니다.`, 'ok')
+        setMemberModal(null)
+      } else {
+        const json = await res.json()
+        toast(json.error || '저장 실패', 'err')
+      }
+    } catch { toast('네트워크 오류', 'err') }
+    finally { setMemberSaving(false) }
+  }
+
+  const filteredMembers = members.filter(m => {
+    const matchSearch = !memberSearch || m.email.includes(memberSearch) || (m.display_name ?? '').includes(memberSearch)
+    const matchLevel = !memberLevelFilter || m.level === memberLevelFilter
+    return matchSearch && matchLevel
+  })
 
   // 관리자 이메일
   const [adminEmail, setAdminEmail] = useState('admin@sinmungo.kr')
@@ -835,6 +919,9 @@ export default function AdminPage() {
       {id:'reports',ico:'⚑',label:'신고 처리',badge:reportList.length,bc:'nb-r'},
       {id:'advisory',ico:'⚖',label:'자문/배심원 신청',badge:advisoryList.filter(x=>x.status==='pending').length,bc:'nb-a'},
     ]},
+    { group:'회원 관리', items:[
+      {id:'members',ico:'👤',label:'회원 관리',badge:members.length,bc:'nb-t'},
+    ]},
     { group:'분석·시스템', items:[
       {id:'analytics',ico:'▦',label:'통계·분석'},
       {id:'settings',ico:'⚙',label:'시스템 설정'},
@@ -895,6 +982,7 @@ export default function AdminPage() {
                 setTab(nextTab)
                 setIsMenuOpen(false)
                 if (nextTab === 'advisory') void loadAdvisory()
+                if (nextTab === 'members') void loadMembers()
 
               }}>
                 <span className="nav-ico">{item.ico}</span>{item.label}
@@ -1700,6 +1788,94 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* MEMBERS */}
+        {tab === 'members' && (
+          <div className="tab-content">
+            <div className="ph">
+              <div>
+                <div className="ph-eyebrow">System</div>
+                <div className="ph-title">회원 관리</div>
+                <div className="ph-sub">가입 회원 레벨 조회 및 권한 관리</div>
+              </div>
+              <div className="ph-actions">
+                <button className="btn btn-t sm" onClick={loadMembers} disabled={membersLoading}>
+                  {membersLoading ? '⟳ 로딩...' : '⟳ 새로고침'}
+                </button>
+              </div>
+            </div>
+
+            {/* 레벨 안내 카드 */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'20px'}}>
+              {LEVEL_META.map(lm => (
+                <div key={lm.level} style={{padding:'12px 14px',background:'var(--panel)',border:'1px solid var(--bdr2)',borderRadius:'4px'}}>
+                  <span className={`lv-badge ${lm.cls}`}>{lm.name}</span>
+                  <p style={{marginTop:'8px',fontSize:'10px',color:'var(--t2)',lineHeight:1.6}}>{lm.desc}</p>
+                  <div style={{marginTop:'8px',fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--t1)',fontWeight:700}}>
+                    {members.filter(m => m.level === lm.level).length}명
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* DB 설정 안내 */}
+            {memberSetupSql && (
+              <div style={{marginBottom:'16px',padding:'14px',background:'var(--amberD)',border:'1px solid rgba(240,165,0,.3)',borderRadius:'4px'}}>
+                <div style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--amber)',fontWeight:700,marginBottom:'8px'}}>
+                  ⚠ user_profiles 테이블이 없습니다 — Supabase SQL Editor에서 아래 SQL을 실행하세요.
+                </div>
+                <pre style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t1)',whiteSpace:'pre-wrap',background:'var(--bg0)',padding:'10px',borderRadius:'3px',border:'1px solid var(--bdr2)'}}>{memberSetupSql}</pre>
+              </div>
+            )}
+
+            {/* 검색·필터 */}
+            <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap'}}>
+              <input
+                className="finput"
+                style={{flex:1,minWidth:'200px'}}
+                placeholder="이메일 또는 이름 검색..."
+                value={memberSearch}
+                onChange={e => setMemberSearch(e.target.value)}
+              />
+              <select className="fselect" style={{width:'130px'}} value={memberLevelFilter} onChange={e => setMemberLevelFilter(Number(e.target.value))}>
+                <option value={0}>전체 레벨</option>
+                {LEVEL_META.map(lm => <option key={lm.level} value={lm.level}>{lm.name}</option>)}
+              </select>
+            </div>
+
+            {/* 회원 테이블 */}
+            <div style={{background:'var(--panel)',border:'1px solid var(--bdr2)',borderRadius:'4px',overflow:'hidden'}}>
+              <div className="member-head">
+                <span>이메일 / 이름</span><span>레벨</span><span>가입일</span><span>최근 로그인</span><span>작업</span>
+              </div>
+              {membersLoading && <div className="loading">⟳ 회원 목록 로딩 중...</div>}
+              {!membersLoading && filteredMembers.length === 0 && (
+                <div className="empty" style={{padding:'32px'}}>
+                  <div className="empty-icon">👤</div>
+                  {members.length === 0 ? 'user_profiles 테이블에 등록된 회원이 없습니다.' : '검색 결과가 없습니다.'}
+                </div>
+              )}
+              {filteredMembers.map(m => {
+                const lm = LEVEL_META.find(x => x.level === m.level) ?? LEVEL_META[0]
+                return (
+                  <div key={m.id} className="member-row" onClick={() => { setMemberModal(m); setMemberNewLevel(m.level) }}>
+                    <div>
+                      <div className="member-email">{m.email}</div>
+                      <div className="member-sub">{m.display_name ?? '—'} · {m.id.slice(0,8)}…</div>
+                    </div>
+                    <div><span className={`lv-badge ${lm.cls}`}>Lv.{m.level}</span></div>
+                    <div style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{m.created_at?.slice(0,10) ?? '—'}</div>
+                    <div style={{fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t2)'}}>{m.last_sign_in_at?.slice(0,10) ?? '—'}</div>
+                    <div><button className="btn btn-t sm" onClick={e => { e.stopPropagation(); setMemberModal(m); setMemberNewLevel(m.level) }}>레벨 변경</button></div>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{marginTop:'8px',fontFamily:'var(--f-mono)',fontSize:'10px',color:'var(--t3)'}}>
+              총 {filteredMembers.length}명 표시 / 전체 {members.length}명
+            </div>
+          </div>
+        )}
+
         {/* ADVISORY */}
         {tab === 'advisory' && (
           <div className="tab-content">
@@ -1893,6 +2069,54 @@ export default function AdminPage() {
                 </>
               )}
               <button className="btn btn-g sm" onClick={()=>{setDetailIssue(null);setStatusIssue({id:detailIssue.id,title:detailIssue.title,status:detailIssue.status});setSelSt('')}}>상태 변경</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL: 회원 레벨 변경 */}
+      <div className={`overlay${memberModal ? ' open' : ''}`} onClick={e => { if (e.target === e.currentTarget) setMemberModal(null) }}>
+        {memberModal && (
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-ttl">회원 레벨 변경</span>
+              <button className="modal-x" onClick={() => setMemberModal(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{background:'var(--bg2)',border:'1px solid var(--bdr2)',padding:'10px 14px',fontFamily:'var(--f-mono)',fontSize:'11px',color:'var(--t1)',marginBottom:'16px',borderRadius:'3px'}}>
+                <div style={{color:'var(--teal)',marginBottom:'4px',fontSize:'10px',letterSpacing:'1px'}}>MEMBER</div>
+                <div>{memberModal.email}</div>
+                {memberModal.display_name && <div style={{color:'var(--t2)',marginTop:'2px'}}>{memberModal.display_name}</div>}
+              </div>
+              <div className="fg">
+                <label className="flbl">레벨 선택</label>
+                <div className="lv-sel">
+                  {LEVEL_META.map(lm => (
+                    <div
+                      key={lm.level}
+                      className={`lv-opt${memberNewLevel === lm.level ? ' sel' : ''}`}
+                      onClick={() => setMemberNewLevel(lm.level)}
+                    >
+                      <span className={`lv-badge ${lm.cls}`}>Lv.{lm.level}</span>
+                      <div className="lv-opt-info">
+                        <div className="lv-opt-name">{lm.name}</div>
+                        <div className="lv-opt-desc">{lm.desc}</div>
+                      </div>
+                      {memberNewLevel === lm.level && <span style={{color:'var(--teal)',fontSize:'14px'}}>✓</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-g sm" onClick={() => setMemberModal(null)}>취소</button>
+              <button
+                className="btn btn-p sm"
+                onClick={saveMemberLevel}
+                disabled={memberSaving || memberNewLevel === memberModal.level}
+              >
+                {memberSaving ? '⟳ 저장 중...' : '레벨 변경 저장'}
+              </button>
             </div>
           </div>
         )}
