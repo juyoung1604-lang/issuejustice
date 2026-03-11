@@ -32,5 +32,16 @@ export async function POST(request: Request) {
     .update({ used: true })
     .eq('id', data.id)
 
+  // user_profiles 자동 등록 (신규 이메일이면 Lv.1으로 생성, 기존이면 무시)
+  await supabaseAdmin
+    .from('user_profiles')
+    .upsert(
+      { email: normalizedEmail, level: 1, updated_at: new Date().toISOString() },
+      { onConflict: 'email', ignoreDuplicates: true }
+    )
+    .select()
+    .maybeSingle()
+  // 테이블 미존재 등 오류는 무시 (인증 자체는 성공 처리)
+
   return NextResponse.json({ ok: true })
 }
