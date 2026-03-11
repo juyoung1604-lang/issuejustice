@@ -60,6 +60,7 @@ function normalizeAttachment(input: IssueAttachmentInput): IssueAttachment {
 }
 
 // 모의 데이터 — DB에 공개 이슈가 없을 때 폴백용
+// created_at: 주간/월간/누적 랭킹 필터링 기준 날짜
 const ISSUES = [
   {
     id: '1',
@@ -69,6 +70,7 @@ const ISSUES = [
     tags: ["형평성", "형사"],
     region: "서울",
     date: "2024-11-15",
+    created_at: "2026-03-07",
     support: 2341,
     overview: "서울시 A구와 B구에서 동일한 경범죄처벌법 위반 사안에 대해 전혀 다른 처분이 내려졌습니다. A구에서는 구두 경고로 끝났으나, B구에서는 48만원의 과태료가 부과되었습니다.",
     problem: "A구 경찰서는 동일 사안에 대해 훈방 조치를 취했으나, B구 경찰서는 과태료 48만원을 부과했습니다. 관할 지역에 따라 법 집행 수위가 10배 이상 차이나는 것은 법 앞의 평등 원칙에 위배됩니다.",
@@ -83,6 +85,7 @@ const ISSUES = [
     tags: ["선별집행", "세무"],
     region: "경기",
     date: "2024-10-03",
+    created_at: "2026-02-20",
     support: 1892,
     overview: "연매출 2억 5천만원의 소규모 음식점 사업자가 세무조사를 받아 800만 원의 가산세를 부과받았습니다. 같은 시기 동일한 유형의 위반(매입세액공제 오류)으로 조사받은 대기업은 매출 대비 가산세율이 1/5 수준이었습니다.",
     problem: "소규모 자영업자는 실수로 인한 매입세액공제 오류에 대해 매출의 3.2% 수준의 가산세가 부과된 반면, 대기업은 동일 위반 유형에 대해 매출의 0.6% 수준만 부과되었습니다.",
@@ -97,6 +100,7 @@ const ISSUES = [
     tags: ["선별집행", "건축"],
     region: "부산",
     date: "2024-09-21",
+    created_at: "2026-01-15",
     support: 1547,
     overview: "부산시 해운대구의 대형 복합쇼핑몰이 건축법상 용도변경 신고 없이 10년간 영업했으나 시정권고만 받았습니다. 같은 구청에서 소규모 음식점은 동일 위반으로 즉시 영업정지 처분을 받았습니다.",
     problem: "대형 쇼핑몰은 건축물대장상 업무시설로 등재되어 있으나 실제로는 판매시설로 사용 중이었습니다. 10년간 방치되다 민원 제기 후에야 시정권고만 내려졌습니다.",
@@ -111,6 +115,7 @@ const ISSUES = [
     tags: ["행정편의", "교통"],
     region: "대구",
     date: "2024-11-01",
+    created_at: "2026-03-10",
     support: 754,
     overview: "대구시 수성구 특정 구간에서 무인단속카메라가 없는 곳에서만 집중적으로 경찰 수동단속이 이뤄지고 있습니다.",
     problem: "해당 구간은 제한속도 50km/h이나 도로 설계상 70km/h로 주행이 자연스러운 구조입니다.",
@@ -155,6 +160,7 @@ function normalizeDbIssue(i: DbIssue) {
     tags: [i.enforcement_type, i.field_category].filter(Boolean),
     region: i.region,
     date: (i.occurred_at || i.created_at || '').slice(0, 10),
+    created_at: (i.created_at || '').slice(0, 10),
     support: i.support_count || 0,
     overview: i.overview || '',
     problem: i.problem || '',
@@ -221,18 +227,21 @@ export default function HomePage() {
       .catch(() => {})
   }, [])
 
-  // 실제 표시 이슈: DB 이슈 + (설정에 따라) 샘플 이슈
-  const sampleIssues = showSampleIssues ? ISSUES : []
-  const displayIssues = [...sampleIssues, ...dbIssues]
+  // 샘플 ON: 샘플 우선 + DB 보충 / 샘플 OFF: DB만 표시
+  const displayIssues = showSampleIssues ? [...ISSUES, ...dbIssues] : [...dbIssues]
 
-  // 애니메이션용 Observer
+  // 스크롤 상태 감지 (별도 effect — 마운트 한 번만)
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50)
       setShowScrollTop(window.scrollY > 300)
     }
     window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
+  // 애니메이션용 Observer — dbIssues 로드 후에도 재실행되어야 함
+  useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -241,13 +250,16 @@ export default function HomePage() {
       })
     }, { threshold: 0.15 })
 
-    document.querySelectorAll(".fade-in, .stagger-item").forEach(el => observer.observe(el))
+    // DOM 업데이트 후 새로 추가된 요소까지 포함해 관찰
+    const timer = setTimeout(() => {
+      document.querySelectorAll(".fade-in, .stagger-item").forEach(el => observer.observe(el))
+    }, 0)
 
     return () => {
-      window.removeEventListener("scroll", handleScroll)
+      clearTimeout(timer)
       observer.disconnect()
     }
-  }, [issueFilter, formStep])
+  }, [dbIssues, issueFilter, formStep, rankingPeriod])
 
   const scrollToSection = (id: string) => {
     setIsMobileMenuOpen(false)
@@ -427,7 +439,20 @@ export default function HomePage() {
   }
 
   const filteredIssues = issueFilter === "전체" ? displayIssues : displayIssues.filter(i => i.tags.includes(issueFilter))
-  const sortedRanking = [...displayIssues].sort((a, b) => b.support - a.support).slice(0, 5)
+
+  const computeRanking = (period: string) => {
+    const now = new Date()
+    const MS_PER_DAY = 1000 * 60 * 60 * 24
+    const cutoffDays = period === '주간' ? 7 : period === '월간' ? 30 : Infinity
+    const filtered = displayIssues.filter(issue => {
+      if (cutoffDays === Infinity) return true
+      const regDate = new Date(issue.created_at || issue.date || '')
+      if (isNaN(regDate.getTime())) return false
+      return (now.getTime() - regDate.getTime()) / MS_PER_DAY <= cutoffDays
+    })
+    return [...filtered].sort((a, b) => b.support - a.support).slice(0, 5)
+  }
+  const sortedRanking = computeRanking(rankingPeriod)
   const currentModalIssue = displayIssues.find(i => i.id === activeModalId)
   const issueShareUrl = currentModalIssue ? buildIssueShareUrl(currentModalIssue.id) : ''
 
@@ -583,24 +608,24 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
-            <div className="relative space-y-2.5 sm:space-y-4 bg-white/40 backdrop-blur-xl p-3 sm:p-8 rounded-[2rem] border border-white shadow-2xl">
+          <div className="hidden lg:block relative fade-in mt-10 lg:mt-0" style={{ transitionDelay: '300ms' }}>
+            <div className="relative space-y-4 bg-white/40 backdrop-blur-xl p-8 rounded-[2rem] border border-white shadow-2xl">
               {displayIssues.slice(0, 5).map((issue, i) => (
-                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-3 sm:gap-5 p-2.5 sm:p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
-                  <div className={`flex-shrink-0 w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl font-black text-[10px] sm:text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
+                <div key={issue.id} onClick={() => openModal(issue.id)} className="stagger-item flex items-center gap-5 p-5 bg-white rounded-2xl smooth-shadow hover:smooth-shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
+                  <div className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl font-black text-sm ${i < 3 ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-gray-100 text-gray-400"}`}>
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[11px] sm:text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
-                      <span className="text-[8px] sm:text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
+                    <div className="text-sm font-bold text-gray-900 truncate group-hover:text-red-500 transition-colors">{issue.title}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">{issue.tags[0]}</span>
                       <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                      <span className="text-[8px] sm:text-[10px] font-bold text-gray-400">{issue.region}</span>
+                      <span className="text-[10px] font-bold text-gray-400">{issue.region}</span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-[11px] sm:text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
-                    <div className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase">지지수</div>
+                    <div className="text-sm font-black text-gray-900 tracking-tighter">{issue.support.toLocaleString()}</div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase">지지수</div>
                   </div>
                 </div>
               ))}
@@ -745,40 +770,54 @@ export default function HomePage() {
       <section id="ranking" className="py-24 md:py-32 px-6 bg-gray-900 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,#1f2937_0%,#111827_100%)]" />
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 md:mb-16 gap-8">
-            <div className="fade-in space-y-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 md:mb-16 gap-6">
+            <div className="fade-in space-y-3 md:space-y-4">
               <div className="text-red-500 font-black tracking-[0.2em] uppercase text-[10px]">Public Consensus</div>
               <h2 className="text-3xl md:text-6xl font-black text-white leading-tight tracking-tighter">가장 많은 공감을<br className="hidden md:block" /> 받은 상식</h2>
             </div>
-            <div className="flex p-1.5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 fade-in overflow-x-auto no-scrollbar">
+            {/* 탭 버튼 — 모바일: 전체 너비 균등 분할 */}
+            <div className="flex w-full md:w-auto p-1.5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 fade-in">
               {["주간", "월간", "누적"].map((p) => (
-                <button key={p} onClick={() => setRankingPeriod(p)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all duration-500 whitespace-nowrap ${rankingPeriod === p ? "bg-white text-gray-900 shadow-2xl" : "text-gray-400 hover:text-white"}`}>
+                <button
+                  key={p}
+                  onClick={() => setRankingPeriod(p)}
+                  className={`flex-1 md:flex-none py-2.5 md:px-6 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all duration-300 ${rankingPeriod === p ? "bg-white text-gray-900 shadow-xl" : "text-gray-400 hover:text-white"}`}
+                >
                   {p}공감
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid gap-4">
-            {sortedRanking.map((issue, i) => (
-              <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-row items-start md:items-center gap-4 md:gap-8 p-5 md:p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-20 md:h-20 flex items-center justify-center rounded-xl md:rounded-[1.5rem] text-sm sm:text-lg md:text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
-                  0{i + 1}
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex flex-wrap justify-start gap-2 md:gap-3 mb-2 md:mb-4">
-                    {issue.tags.map((tag, ti) => (
-                      <span key={`${tag}-${ti}`} className="px-2 py-0.5 md:px-3 md:py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
-                    ))}
-                  </div>
-                  <h3 className="text-base sm:text-lg md:text-2xl font-black text-white group-hover:text-red-400 transition-colors duration-300 tracking-tight leading-snug">{issue.title}</h3>
-                </div>
-                <div className="flex-shrink-0 text-right hidden sm:block">
-                  <div className="text-2xl md:text-4xl font-black text-red-500 tracking-tighter group-hover:scale-110 transition-transform duration-500">{issue.support.toLocaleString()}</div>
-                  <div className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Supporters</div>
-                </div>
+          <div className="grid gap-3 md:gap-4">
+            {sortedRanking.length === 0 ? (
+              <div className="py-16 text-center text-gray-500 font-bold">
+                {rankingPeriod === '주간' ? '이번 주' : '이번 달'} 등록된 이슈가 없습니다.
               </div>
-            ))}
+            ) : (
+              sortedRanking.map((issue, i) => (
+                <div key={issue.id} onClick={() => openModal(issue.id)} className="fade-in flex flex-row items-center gap-3 md:gap-8 p-4 md:p-8 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl md:rounded-3xl transition-all duration-500 cursor-pointer group" style={{ transitionDelay: `${i * 100}ms` }}>
+                  {/* 순위 배지 */}
+                  <div className={`flex-shrink-0 w-10 h-10 md:w-20 md:h-20 flex items-center justify-center rounded-xl md:rounded-[1.5rem] text-sm md:text-3xl font-black transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${getRankBadgeStyle(i)}`}>
+                    0{i + 1}
+                  </div>
+                  {/* 제목 + 태그 */}
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex flex-wrap gap-1.5 md:gap-3 mb-1.5 md:mb-4">
+                      {issue.tags.map((tag, ti) => (
+                        <span key={`${tag}-${ti}`} className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{tag}</span>
+                      ))}
+                    </div>
+                    <h3 className="text-sm md:text-2xl font-black text-white group-hover:text-red-400 transition-colors duration-300 tracking-tight leading-snug line-clamp-2">{issue.title}</h3>
+                  </div>
+                  {/* 지지수 — 모바일도 표시 */}
+                  <div className="flex-shrink-0 text-right">
+                    <div className="text-lg md:text-4xl font-black text-red-500 tracking-tighter">{issue.support.toLocaleString()}</div>
+                    <div className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest mt-0.5">공감</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
