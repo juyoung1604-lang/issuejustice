@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
 
 const PORT = 3000;
 const extraArgs = process.argv.slice(2);
+const devCacheDir = join(process.cwd(), ".next", "dev");
 
 function listListeningPids(port) {
   const result = spawnSync(
@@ -50,6 +53,12 @@ function stopIfSafe(pid) {
 
 for (const pid of listListeningPids(PORT)) {
   stopIfSafe(pid);
+}
+
+// Next.js dev 캐시가 깨진 경우 ENOENT(runtime) 문제가 반복될 수 있어 시작 시 정리
+if (existsSync(devCacheDir)) {
+  rmSync(devCacheDir, { recursive: true, force: true });
+  console.log("Cleared stale Next dev cache (.next/dev).");
 }
 
 const nextDev = spawn("next", ["dev", "-p", String(PORT), ...extraArgs], {
