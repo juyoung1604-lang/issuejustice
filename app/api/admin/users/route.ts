@@ -81,6 +81,44 @@ export async function GET() {
   }
 }
 
+export async function POST(request: Request) {
+  try {
+    const { email, level = 1, display_name } = await request.json()
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: '유효한 이메일을 입력해 주세요.' }, { status: 400 })
+    }
+    if (typeof level !== 'number' || level < 1 || level > 4) {
+      return NextResponse.json({ error: '레벨은 1~4 사이여야 합니다.' }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('user_profiles')
+      .insert({
+        email: email.toLowerCase().trim(),
+        level,
+        display_name: display_name?.trim() || null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      const isDuplicate = error.code === '23505' || error.message.includes('unique')
+      const isMissing = error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01' || error.message.includes('schema cache')
+      if (isMissing) {
+        return NextResponse.json({ error: 'user_profiles 테이블이 없습니다. 회원 관리 탭에서 DB 설정 SQL을 먼저 실행해 주세요.', setupSql: CREATE_TABLE_SQL }, { status: 503 })
+      }
+      return NextResponse.json(
+        { error: isDuplicate ? '이미 등록된 이메일입니다.' : error.message },
+        { status: isDuplicate ? 409 : 500 }
+      )
+    }
+    return NextResponse.json({ data }, { status: 201 })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const { id, level, display_name } = await request.json()

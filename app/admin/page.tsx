@@ -430,6 +430,12 @@ export default function AdminPage() {
   const [memberModal, setMemberModal] = useState<MemberUser | null>(null)
   const [memberNewLevel, setMemberNewLevel] = useState(1)
   const [memberSaving, setMemberSaving] = useState(false)
+  const [memberRegOpen, setMemberRegOpen] = useState(false)
+  const [memberRegEmail, setMemberRegEmail] = useState('')
+  const [memberRegName, setMemberRegName] = useState('')
+  const [memberRegLevel, setMemberRegLevel] = useState(1)
+  const [memberRegSaving, setMemberRegSaving] = useState(false)
+  const [memberDeleting, setMemberDeleting] = useState(false)
 
   const LEVEL_META = [
     { level: 1, name: '1단계 · 제안자', cls: 'lv1', desc: '이메일 로그인 후 이슈 제안, 자신의 글 수정, 댓글 신고 가능' },
@@ -468,6 +474,51 @@ export default function AdminPage() {
       }
     } catch { toast('네트워크 오류', 'err') }
     finally { setMemberSaving(false) }
+  }
+
+  const registerMember = async () => {
+    const email = memberRegEmail.trim()
+    if (!email) { toast('이메일을 입력해 주세요.', 'err'); return }
+    setMemberRegSaving(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, level: memberRegLevel, display_name: memberRegName.trim() || undefined }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setMembers(prev => [json.data, ...prev])
+        toast(`${email} 회원이 등록되었습니다.`, 'ok')
+        setMemberRegOpen(false)
+        setMemberRegEmail(''); setMemberRegName(''); setMemberRegLevel(1)
+      } else {
+        toast(json.error || '등록 실패', 'err')
+      }
+    } catch { toast('네트워크 오류', 'err') }
+    finally { setMemberRegSaving(false) }
+  }
+
+  const deleteMember = async () => {
+    if (!memberModal) return
+    if (!confirm(`${memberModal.email} 회원을 삭제하시겠습니까?`)) return
+    setMemberDeleting(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: memberModal.id }),
+      })
+      if (res.ok) {
+        setMembers(prev => prev.filter(m => m.id !== memberModal.id))
+        toast(`${memberModal.email} 회원이 삭제되었습니다.`, 'ok')
+        setMemberModal(null)
+      } else {
+        const json = await res.json()
+        toast(json.error || '삭제 실패', 'err')
+      }
+    } catch { toast('네트워크 오류', 'err') }
+    finally { setMemberDeleting(false) }
   }
 
   const filteredMembers = members.filter(m => {
@@ -991,7 +1042,10 @@ export default function AdminPage() {
             ))}
           </div>
         ))}
-        <button className="nav-btn" style={{color:'var(--red)',marginTop:'4px'}} onClick={() => toast('로그아웃 처리되었습니다.')}>
+        <button className="nav-btn" style={{color:'var(--red)',marginTop:'4px'}} onClick={async () => {
+          await fetch('/api/admin/auth', { method: 'DELETE' })
+          window.location.href = '/admin/login'
+        }}>
           <span className="nav-ico">→</span>로그아웃
         </button>
         <div className="sb-foot">
@@ -1798,7 +1852,10 @@ export default function AdminPage() {
                 <div className="ph-sub">가입 회원 레벨 조회 및 권한 관리</div>
               </div>
               <div className="ph-actions">
-                <button className="btn btn-t sm" onClick={loadMembers} disabled={membersLoading}>
+                <button className="btn btn-t sm" onClick={() => { setMemberRegOpen(true); setMemberRegEmail(''); setMemberRegName(''); setMemberRegLevel(1) }}>
+                  + 회원 등록
+                </button>
+                <button className="btn btn-g sm" onClick={loadMembers} disabled={membersLoading}>
                   {membersLoading ? '⟳ 로딩...' : '⟳ 새로고침'}
                 </button>
               </div>
@@ -2109,6 +2166,9 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="modal-foot">
+              <button className="btn sm" style={{background:'var(--redD)',color:'var(--red)',border:'1px solid rgba(224,72,72,.3)',marginRight:'auto'}} onClick={deleteMember} disabled={memberDeleting}>
+                {memberDeleting ? '⟳ 삭제 중...' : '🗑 회원 삭제'}
+              </button>
               <button className="btn btn-g sm" onClick={() => setMemberModal(null)}>취소</button>
               <button
                 className="btn btn-p sm"
@@ -2116,6 +2176,66 @@ export default function AdminPage() {
                 disabled={memberSaving || memberNewLevel === memberModal.level}
               >
                 {memberSaving ? '⟳ 저장 중...' : '레벨 변경 저장'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL: 회원 등록 */}
+      <div className={`overlay${memberRegOpen?' open':''}`} onClick={e=>{if(e.target===e.currentTarget)setMemberRegOpen(false)}}>
+        {memberRegOpen && (
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-ttl">회원 등록</span>
+              <button className="modal-x" onClick={() => setMemberRegOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="fg">
+                <label className="flbl">이메일 *</label>
+                <input
+                  className="finput"
+                  type="text"
+                  placeholder="user@example.com"
+                  value={memberRegEmail}
+                  onChange={e => setMemberRegEmail(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') registerMember() }}
+                />
+              </div>
+              <div className="fg">
+                <label className="flbl">이름 (선택)</label>
+                <input
+                  className="finput"
+                  type="text"
+                  placeholder="표시 이름"
+                  value={memberRegName}
+                  onChange={e => setMemberRegName(e.target.value)}
+                />
+              </div>
+              <div className="fg">
+                <label className="flbl">레벨 선택</label>
+                <div className="lv-sel">
+                  {LEVEL_META.map(lm => (
+                    <div
+                      key={lm.level}
+                      className={`lv-opt${memberRegLevel === lm.level ? ' sel' : ''}`}
+                      onClick={() => setMemberRegLevel(lm.level)}
+                    >
+                      <span className={`lv-badge ${lm.cls}`}>Lv.{lm.level}</span>
+                      <div className="lv-opt-info">
+                        <div className="lv-opt-name">{lm.name}</div>
+                        <div className="lv-opt-desc">{lm.desc}</div>
+                      </div>
+                      {memberRegLevel === lm.level && <span style={{color:'var(--teal)',fontSize:'14px'}}>✓</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-g sm" onClick={() => setMemberRegOpen(false)}>취소</button>
+              <button className="btn btn-p sm" onClick={registerMember} disabled={memberRegSaving}>
+                {memberRegSaving ? '⟳ 등록 중...' : '회원 등록'}
               </button>
             </div>
           </div>
